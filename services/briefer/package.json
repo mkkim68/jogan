@@ -1,0 +1,10 @@
+{
+  "name": "@jogan/briefer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  }
+}
