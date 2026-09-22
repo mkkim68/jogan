@@ -11,6 +11,8 @@ function todayInSeoul(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
 }
 
+// 로컬 개발용 시드. SEED_USER_EMAIL을 바꾸면 고정 id가 충돌하고, 파이프라인이 실제 브리핑을
+// 쓰기 시작하면 briefs_user_date 유니크와 충돌할 수 있다 — 그 시점엔 시드를 지우거나 날짜를 바꾼다.
 async function main() {
   const email = process.env.SEED_USER_EMAIL
   if (!email) throw new Error('SEED_USER_EMAIL이 없습니다. .env에 Google 로그인에 쓸 이메일을 넣으세요.')
@@ -37,7 +39,10 @@ async function main() {
     await db.insert(briefItems).values(items.map((item) => ({ ...item, briefId: brief.id }))).onConflictDoNothing()
   }
 
-  await db.insert(savedItems).values(seed.saved).onConflictDoNothing()
+  await db
+    .insert(savedItems)
+    .values(seed.saved.map((s) => ({ ...s, followUp: s.followUp ? { ...s.followUp, at: s.followUp.at.toISOString() } : null })))
+    .onConflictDoNothing()
 
   console.log(`시드 완료: ${email} · 논문 ${seed.papers.length}편 · ${seed.brief.date} 브리핑 제${seed.brief.issueNumber}호`)
 }

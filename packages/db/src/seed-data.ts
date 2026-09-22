@@ -304,7 +304,7 @@ export function buildSeed(userId: string, today: string): SeedData {
           { label: '효과', value: 'β = 0.31 (95% CI 0.12–0.50)' },
         ],
         limitations: [{ bySource: 'author', text: '단일 야간 측정.' }],
-        quotes: [{ text: 'stage-2 spindle density predicts overnight improvement (β = 0.31, 95% CI 0.12–0.50)', locator: 'Abstract' }],
+        quotes: [{ text: 'stage-2 spindle density predicts overnight improvement on a finger-tapping task (β = 0.31, 95% CI 0.12–0.50)', locator: 'Abstract' }],
       },
       {
         paperId: PAPER.reviewbench, interestId: INTEREST.review, position: 2, isSerendipity: false,
