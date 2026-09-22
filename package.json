@@ -1,0 +1,25 @@
+{
+  "name": "jogan",
+  "private": true,
+  "packageManager": "pnpm@12.5.1",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "pnpm --filter @jogan/web dev",
+    "db:generate": "pnpm --filter @jogan/db generate",
+    "db:migrate": "pnpm --filter @jogan/db migrate",
+    "db:push": "pnpm --filter @jogan/db push",
+    "db:seed": "pnpm --filter @jogan/db seed",
+    "pipeline:collect": "pnpm --filter @jogan/collector start",
+    "pipeline:evaluate": "pnpm --filter @jogan/evaluator start",
+    "pipeline:brief": "pnpm --filter @jogan/briefer start",
+    "pipeline:run": "pnpm pipeline:collect && pnpm pipeline:evaluate && pnpm pipeline:brief",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.1"
+  }
+}

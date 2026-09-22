@@ -1,0 +1,14 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: jogan-db
+    environment:
+      POSTGRES_USER: jogan
+      POSTGRES_PASSWORD: jogan
+      POSTGRES_DB: jogan
+    ports:
+      - "5433:5432"
+    volumes:
+      - jogan-db:/var/lib/postgresql/data
+volumes:
+  jogan-db:
