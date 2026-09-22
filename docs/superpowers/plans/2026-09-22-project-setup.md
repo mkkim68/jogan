@@ -2093,3 +2093,20 @@ Expected: 출력 없음 (`.env`는 gitignore, `next-env.d.ts`도 gitignore).
 - **Spec coverage:** 결정 사항(다중 사용자·Auth.js·Vercel+Neon 기록·pnpm only·소스 export·zod core·Tailwind v3·EMBEDDING_DIM) → Task 1~6. 테이블 11개 → Task 3. 시드 구성(사용자 1·관심사 3·논문 4+1·브리핑·후속 소식·멱등) → Task 4. web(토큰·폰트·매니페스트·auth·proxy·login·placeholder) → Task 5·6. services 스텁·프롬프트 → Task 7. 루트 명령어 → Task 1. 테스트 → Task 2·4. 환경변수·README → Task 1·6. 완료 기준 → Task 8. CLAUDE.md 변경은 스펙 커밋 때 이미 반영됨.
 - **Placeholder scan:** 없음. 서비스 `index.ts`의 "아직 구현되지 않았습니다"는 의도된 런타임 메시지다.
 - **Type consistency:** `PAPER_SOURCES`/`TRACKS`/`FIELDS` 튜플을 core에서 export하고 db `pgEnum`이 소비. `BriefItem`에 `id` 없음, DB PK `(brief_id, position)`. `buildSeed(userId, today)` 시그니처가 테스트·seed.ts에서 동일. 테이블 export 이름(`users`, `accounts`, `sessions`, `verificationTokens`, `userSettings`, `papers`, `assessments`, `interests`, `briefs`, `briefItems`, `savedItems`)이 Task 3·4·6에서 동일.
+
+---
+
+## 실행 결과 (2026-09-22)
+
+브랜치 `feat/project-setup`, 8커밋. 전 태스크 리뷰 통과, 클린 환경 재검증 통과.
+
+### 다음 계획으로 이월한 항목
+
+- **행→도메인 매퍼** (`packages/db/src/queries/`): 읽기는 전부 core `.parse()`를 거친다. `saved_items.follow_up.at`(ISO 문자열 → `coerce.date`), `user_settings.departure_time`(`HH:mm:ss` → `slice(0,5)`)이 여기서 해결된다.
+- `packages/db/src/client.ts` — `next dev` HMR용 `globalThis` 캐시, `max`/`idle_timeout` 설정
+- 폰트를 `<link>`에서 `next/font/google`로 (서비스워커 세션과 함께)
+- 매니페스트 PNG 아이콘(180/192/512), FK 인덱스 + HNSW 마이그레이션
+- `next-auth` devDep을 `@auth/core/adapters` import로 대체 (db 패키지 프레임워크 독립)
+- Google 동의 화면이 테스트 모드를 벗어나기 전 `ALLOWED_EMAILS` 허용 목록
+- `requireUser()` 헬퍼, `/api/*`에는 307 대신 401
+- User/Author 단독 스키마 테스트 (온보딩 폼과 함께)
