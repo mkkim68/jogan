@@ -1,7 +1,7 @@
 'use server'
 
 import { OnboardingInput } from '@jogan/core'
-import { createInterests, upsertSettings } from '@jogan/db'
+import { completeOnboarding, listInterests } from '@jogan/db'
 import { redirect } from 'next/navigation'
 import { requireUser } from '@/lib/session'
 
@@ -11,8 +11,13 @@ import { requireUser } from '@/lib/session'
  * `userId`는 클라이언트에서 절대 받지 않는다 — 항상 `requireUser()`로 서버 세션에서 얻는다.
  * `useActionState`로 쓰이므로 시그니처는 (prevState, formData) => 다음 state.
  * 검증 실패는 throw하지 않고 `{ error }`를 돌려줘 폼에 표시한다 — 이때는 아무것도 쓰지 않는다.
- * 검증을 통과했을 때만 `createInterests` + `upsertSettings`를 쓰고, 그 다음에만 `redirect('/')`한다.
+ * 관심사 삽입과 설정 upsert는 `@jogan/db`의 `completeOnboarding` 트랜잭션 하나로 묶여 있다 —
+ * 이 액션은 그 함수 하나만 호출하고, 두 쓰기를 직접 조율하지 않는다.
  * `redirect()`는 Next 내부적으로 던지는 신호이므로 try/catch로 감싸지 않는다.
+ *
+ * 재제출 가드: 맨 앞에서 이미 관심사가 있는지 확인한다 — 페이지의 GET 가드
+ * (`onboarding/page.tsx`가 `interests.length > 0`이면 `/`로 보내는 것)와 같은 조건을
+ * POST 경로에도 건다. bfcache 뒤로가기 후 재제출, 중복 탭, 재전송된 POST 모두 이 가드를 거친다.
  */
 
 export type OnboardingFormState = { error: string | null }
@@ -24,6 +29,9 @@ export async function submitOnboarding(
   formData: FormData,
 ): Promise<OnboardingFormState> {
   const user = await requireUser()
+
+  const existing = await listInterests(user.id)
+  if (existing.length > 0) redirect('/')
 
   const chipLabels = formData.getAll('labels').map(String)
   const customLabel = String(formData.get('customLabel') ?? '').trim()
@@ -47,8 +55,12 @@ export async function submitOnboarding(
 
   const { labels: validLabels, departureTime, papersPerDay, includePreprints } = parsed.data
 
-  await createInterests(user.id, validLabels)
-  await upsertSettings({ userId: user.id, departureTime, papersPerDay, includePreprints })
+  await completeOnboarding(user.id, validLabels, {
+    userId: user.id,
+    departureTime,
+    papersPerDay,
+    includePreprints,
+  })
 
   redirect('/')
 }
