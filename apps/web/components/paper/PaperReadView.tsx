@@ -5,6 +5,7 @@ import { ExternalLinkIcon, WarningTriangleIcon } from '@/components/icons'
 import { formatIssueDate } from '@/components/shell/Masthead'
 import { sourceUrl } from '@/lib/link'
 import { formatAuthors, splitParenthetical } from '@/lib/paper-format'
+import { summarizeTrust } from '@/lib/trust-summary'
 import { TrackBadge } from './TrackBadge'
 
 type Props = {
@@ -17,27 +18,6 @@ type Props = {
   total: number
   /** 오늘 브리핑의 날짜(YYYY-MM-DD). 브리핑이 없으면 null */
   briefDate: string | null
-}
-
-/** 4단계 신뢰도 필터 — CLAUDE.md/PRD가 정한 파이프라인 구조 상수. 점수나 논문별 수치가 아니다 */
-const TOTAL_STAGES = 4
-
-/**
- * "N단계 통과" 배지 문구. `evidence`의 실제 verdict에서 계산한다 — "4단계 통과"를
- * 모든 논문에 고정으로 쓰면 `notable`(심사 전) 논문에는 거짓이 되므로 지어내지 않는다.
- */
-function summarizeTrust(evidence: { stage: 1 | 2 | 3 | 4; verdict: 'pass' | 'caution' }[]): {
-  label: string
-  caution: boolean
-} {
-  const cautionEvidence = evidence.filter((e) => e.verdict === 'caution')
-  const cautionStages = new Set(cautionEvidence.map((e) => e.stage))
-  const passedStageCount = TOTAL_STAGES - cautionStages.size
-
-  if (cautionEvidence.length === 0) {
-    return { label: `${passedStageCount}단계 필터 전부 통과`, caution: false }
-  }
-  return { label: `${passedStageCount}단계 통과 · ${cautionEvidence.length}건 유의`, caution: true }
 }
 
 const SIDE_LABEL = 'text-[11px] font-semibold tracking-[1px] text-ink-muted'
