@@ -16,3 +16,9 @@ export const UserSettings = z.object({
   includePreprints: z.boolean(),
 })
 export type UserSettings = z.infer<typeof UserSettings>
+
+/** `/onboarding` 제출값. userId는 서버 액션이 세션에서 채운다 — 클라이언트에서 받지 않는다 */
+export const OnboardingInput = UserSettings.omit({ userId: true }).extend({
+  labels: z.array(z.string().min(1)).min(1).max(5),
+})
+export type OnboardingInput = z.infer<typeof OnboardingInput>
