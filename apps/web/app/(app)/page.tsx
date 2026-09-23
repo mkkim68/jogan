@@ -1,18 +1,11 @@
-import {
-  countByInterest,
-  countStreak,
-  getLatestBrief,
-  getTodayBrief,
-  listInterests,
-  listSaved,
-  todayInSeoul,
-} from '@jogan/db'
+import { countByInterest, countStreak, getLatestBrief, getTodayBrief, todayInSeoul } from '@jogan/db'
 import Link from 'next/link'
 import { AudioStrip } from '@/components/brief/AudioStrip'
 import { ExternalLinkIcon, PlayIcon, PlusIcon } from '@/components/icons'
 import { PaperCard } from '@/components/paper/PaperCard'
 import { TrackBadge } from '@/components/paper/TrackBadge'
 import { Masthead } from '@/components/shell/Masthead'
+import { listInterests, listSaved } from '@/lib/data'
 import { sourceUrl } from '@/lib/link'
 import { requireUser } from '@/lib/session'
 
@@ -67,6 +60,8 @@ export default async function BriefingPage() {
   ])
 
   const staleLabel = view.isToday ? null : formatStaleLabel(view.brief.date)
+  // 지난 브리핑을 보여줄 때는 "오늘 N편"이라고 말하지 않는다 — 날짜 라벨과 모순된다
+  const todayPrefix = view.isToday ? '오늘 ' : ''
   const totalCount = view.items.length
   const mainItems = view.items.filter((v) => !v.item.isSerendipity)
   const serendipity = view.items.find((v) => v.item.isSerendipity) ?? null
@@ -86,8 +81,9 @@ export default async function BriefingPage() {
         <Masthead date={view.brief.date} issueNumber={view.brief.issueNumber} />
         {staleLabel ? <p className="mt-3 text-xs font-medium text-ink-muted">{staleLabel}</p> : null}
         <p className="mt-4 text-sm text-ink-body">
-          관심사 {interests.length}개에서 오늘 <span className="font-semibold text-ink">{totalCount}편</span>을
-          골랐습니다 · 읽기 {view.brief.readMinutes}분
+          관심사 {interests.length}개에서 {todayPrefix}
+          <span className="font-semibold text-ink">{totalCount}편</span>을 골랐습니다 · 읽기{' '}
+          {view.brief.readMinutes}분
         </p>
         <p className="mt-1.5 text-[11px] text-ink-muted">신뢰도 배지와 근거는 AI 보조 의견입니다</p>
         <AudioStrip seconds={view.brief.audioSeconds} className="mt-4" />
@@ -100,9 +96,10 @@ export default async function BriefingPage() {
         </ul>
       </div>
 
-      {/* 웹 (>= 720px) — 좌 244 / 중앙 flex / 우 300, 간격 28 */}
-      <div className="hidden px-7 py-8 tablet:grid tablet:grid-cols-[244px_minmax(0,1fr)_300px] tablet:gap-7">
-        <aside className="flex flex-col gap-8">
+      {/* 태블릿(720~1080px) — 중앙 + 우 도구 2단, 좌 레일은 서랍이라 숨김.
+          데스크톱(>= 1080px)에서 좌 244 / 중앙 flex / 우 300, 간격 28 */}
+      <div className="hidden px-7 py-8 tablet:grid tablet:grid-cols-[minmax(0,1fr)_300px] tablet:gap-7 desktop:grid-cols-[244px_minmax(0,1fr)_300px]">
+        <aside className="hidden flex-col gap-8 desktop:flex">
           <div>
             <h2 className={SIDE_LABEL}>내 관심사</h2>
             <ul className="mt-3 flex flex-col gap-2.5">
@@ -155,7 +152,11 @@ export default async function BriefingPage() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="font-display text-[30px] font-extrabold tracking-[-0.9px] text-ink">오늘의 브리핑</h1>
-              <p className="mt-1 text-sm text-ink-muted">오늘 {totalCount}편을 골랐습니다</p>
+              <p className="mt-1 text-sm text-ink-muted">
+                {todayPrefix}
+                {mainItems.length}편을 골랐습니다
+                {serendipity ? ' · 곁가지 1편 포함' : ''}
+              </p>
               <p className="mt-1 text-[11px] text-ink-muted">신뢰도 배지와 근거는 AI 보조 의견입니다</p>
             </div>
             {view.brief.audioSeconds != null ? (
@@ -172,7 +173,7 @@ export default async function BriefingPage() {
               </span>
             )}
           </div>
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             {mainItems.map(({ item, paper, assessment }) => (
               <PaperCard key={item.paperId} item={item} paper={paper} assessment={assessment} layout="web" />
             ))}
@@ -218,7 +219,11 @@ export default async function BriefingPage() {
           {serendipity ? (
             <div>
               <h2 className={SIDE_LABEL}>오늘의 곁가지</h2>
-              <div className="mt-3 rounded-xl border border-line bg-surface p-3">
+              <div
+                className={`mt-3 rounded-xl bg-surface p-3 ${
+                  serendipity.assessment?.track === 'notable' ? 'border-2 border-caution-line' : 'border border-line'
+                }`}
+              >
                 {serendipity.assessment ? (
                   <TrackBadge track={serendipity.assessment.track} />
                 ) : null}

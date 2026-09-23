@@ -1,6 +1,6 @@
 'use server'
 
-import { getPaperDetail, markRead, savePaper, unsavePaper } from '@jogan/db'
+import { isSaved, markRead, savePaper, unsavePaper } from '@jogan/db'
 import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/session'
 
@@ -13,9 +13,9 @@ import { requireUser } from '@/lib/session'
 
 export async function toggleSave(paperId: string): Promise<void> {
   const user = await requireUser()
-  const detail = await getPaperDetail(paperId, user.id)
+  const alreadySaved = await isSaved(user.id, paperId)
 
-  if (detail?.saved) {
+  if (alreadySaved) {
     await unsavePaper(user.id, paperId)
   } else {
     await savePaper(user.id, paperId)

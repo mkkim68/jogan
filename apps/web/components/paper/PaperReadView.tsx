@@ -6,6 +6,7 @@ import { formatIssueDate } from '@/components/shell/Masthead'
 import { sourceUrl } from '@/lib/link'
 import { formatAuthors, splitParenthetical } from '@/lib/paper-format'
 import { summarizeTrust } from '@/lib/trust-summary'
+import { sortEvidenceForDisplay } from './EvidenceChips'
 import { TrackBadge } from './TrackBadge'
 
 type Props = {
@@ -59,9 +60,9 @@ export function PaperReadView({ detail, related, position, total, briefDate }: P
         ) : null}
       </div>
 
-      <div className="grid grid-cols-[236px_776px_300px] gap-7 px-7 pb-8 pt-4">
-        {/* 좌: 읽는 순서(진행률) + 함께 읽으면 좋은 논문 */}
-        <aside className="flex flex-col gap-8">
+      <div className="grid grid-cols-[minmax(0,1fr)_300px] gap-7 px-7 pb-8 pt-4 desktop:grid-cols-[236px_minmax(0,776px)_300px]">
+        {/* 좌: 읽는 순서(진행률) + 함께 읽으면 좋은 논문 — 태블릿(720~1080px)에서는 서랍이라 숨긴다 */}
+        <aside className="hidden flex-col gap-8 desktop:flex">
           {inBrief ? (
             <div>
               <h2 className={SIDE_LABEL}>읽는 순서</h2>
@@ -146,7 +147,13 @@ export function PaperReadView({ detail, related, position, total, briefDate }: P
                       &ldquo;{quote.text}&rdquo;
                     </p>
                     <p className="mt-2 text-xs text-ink-muted">
-                      원문 {quote.locator} · 클릭하면 PDF의 해당 위치로 이동
+                      {href ? (
+                        <a href={href} target="_blank" rel="noreferrer" className="hover:text-ink hover:underline">
+                          원문 {quote.locator} · 클릭하면 원문으로 이동
+                        </a>
+                      ) : (
+                        `원문 ${quote.locator}`
+                      )}
                     </p>
                   </blockquote>
                 ))}
@@ -232,7 +239,7 @@ export function PaperReadView({ detail, related, position, total, briefDate }: P
             </span>
             <p className="mt-2 text-[11px] text-ink-muted">AI 보조 의견입니다 — 최종 판단은 읽는 사람의 몫입니다.</p>
             <ul className="mt-3 flex flex-col gap-2">
-              {assessment.evidence.slice(0, 4).map((evidence, index) => (
+              {sortEvidenceForDisplay(assessment.evidence).slice(0, 4).map((evidence, index) => (
                 <li
                   key={index}
                   className={`flex items-start gap-1.5 text-xs leading-relaxed ${evidence.verdict === 'caution' ? 'text-caution' : 'text-ink-body'}`}

@@ -1,8 +1,9 @@
-import { listInterests, todayInSeoul } from '@jogan/db'
+import { todayInSeoul } from '@jogan/db'
 import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { BottomTabs } from '@/components/shell/BottomTabs'
 import { TopBar } from '@/components/shell/TopBar'
+import { listInterests } from '@/lib/data'
 import { requireUser } from '@/lib/session'
 
 export default async function AppLayout({ children }: { children: ReactNode }) {

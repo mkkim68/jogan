@@ -31,7 +31,7 @@ export function OnboardingForm() {
   }
 
   return (
-    <form action={formAction} className="flex min-h-dvh flex-col">
+    <form action={formAction} aria-busy={pending} className="flex min-h-dvh flex-col">
       <div className="mx-auto w-full max-w-prose flex-1 px-5 pb-32 pt-12 tablet:px-0">
         <p className="font-display text-xs font-bold uppercase tracking-[1.4px] text-accent">
           3분이면 끝납니다

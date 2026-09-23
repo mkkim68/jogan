@@ -19,7 +19,7 @@ describe('summarizeTrust', () => {
       { stage: 3, verdict: 'pass' },
     ])
     expect(result).toEqual({ label: '3단계 통과', caution: false })
-    expect(result.label).not.toContain('전부')
+    expect(result?.label).not.toContain('전부')
   })
 
   it('한 단계에 통과와 유의 근거가 함께 있으면 그 단계는 통과로 세지 않는다', () => {
@@ -32,8 +32,8 @@ describe('summarizeTrust', () => {
     expect(result).toEqual({ label: '2단계 통과 · 1건 유의', caution: true })
   })
 
-  it('근거가 비어 있으면 0단계 통과로 말한다', () => {
+  it('근거가 비어 있으면 배지를 숨긴다(null)', () => {
     const result = summarizeTrust([])
-    expect(result).toEqual({ label: '0단계 통과', caution: false })
+    expect(result).toBeNull()
   })
 })

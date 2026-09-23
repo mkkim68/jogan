@@ -5,6 +5,7 @@ import { BookmarkIcon, CloseIcon, ExternalLinkIcon, ShieldIcon } from '@/compone
 import { sourceUrl } from '@/lib/link'
 import { formatAuthors, formatPublishedDate, splitParenthetical } from '@/lib/paper-format'
 import { ProgressSegments } from '@/components/brief/ProgressSegments'
+import { EvidenceChips } from './EvidenceChips'
 import { TrackBadge } from './TrackBadge'
 
 type Props = {
@@ -52,6 +53,7 @@ export function PaperCardView({ detail, position, total }: Props) {
         <p className="mt-2 text-[11px] leading-[1.55] text-ink-muted">
           {authorsLine} · {dateLine}
         </p>
+        {assessment ? <EvidenceChips evidence={assessment.evidence} max={3} className="mt-3" /> : null}
 
         {briefItem ? (
           <>
@@ -111,7 +113,9 @@ export function PaperCardView({ detail, position, total }: Props) {
         )}
       </article>
 
-      <div className="mt-4 flex items-center gap-3">
+      <p className="mt-4 text-[11px] text-ink-muted">신뢰도 배지와 근거는 AI 보조 의견입니다</p>
+
+      <div className="mt-3 flex items-center gap-3">
         <form action={toggleSave.bind(null, paper.id)} className="flex-1">
           <button
             type="submit"

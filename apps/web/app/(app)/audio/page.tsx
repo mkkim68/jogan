@@ -93,7 +93,7 @@ export default async function AudioPage() {
           disabled
           className="flex h-11 items-center rounded-[10px] px-2 text-sm font-medium text-night-muted disabled:opacity-60"
         >
-          속도 1.2×
+          속도
         </button>
 
         <div className="flex items-center gap-4">

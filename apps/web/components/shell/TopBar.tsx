@@ -1,4 +1,4 @@
-import { getLatestBrief, listSaved } from '@jogan/db'
+import { countSaved, getLatestBrief } from '@jogan/db'
 import Link from 'next/link'
 import type { SessionUser } from '@/lib/session'
 import { formatIssueDate } from './Masthead'
@@ -16,7 +16,7 @@ type Props = {
  * (가짜 호수를 만들지 않는다).
  */
 export async function TopBar({ user, today }: Props) {
-  const [saved, latestBrief] = await Promise.all([listSaved(user.id), getLatestBrief(user.id)])
+  const [savedCount, latestBrief] = await Promise.all([countSaved(user.id), getLatestBrief(user.id)])
   const avatarLabel = user.name ?? user.email
 
   return (
@@ -51,7 +51,7 @@ export async function TopBar({ user, today }: Props) {
           href="/saved"
           className="flex h-11 items-center px-3 text-sm font-medium text-ink-dim hover:text-ink"
         >
-          저장함 {saved.length}
+          저장함 {savedCount}
         </Link>
         {user.image ? (
           // eslint-disable-next-line @next/next/no-img-element -- 외부(Google) 아바타, next/image 도메인 설정 범위 밖

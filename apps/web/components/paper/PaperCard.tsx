@@ -64,19 +64,19 @@ export function PaperCard({ item, paper, assessment, layout }: Props) {
   if (layout === 'phone') {
     return (
       <article className={`relative rounded-2xl bg-surface p-4 ${borderClass}`}>
-        <Link
-          href={detailHref}
-          aria-label={paper.title}
-          className="absolute inset-0 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ink"
-        />
-        <div className="relative z-10 flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2.5">
           {meta}
           <h3 className="font-display text-[19px] font-bold leading-[1.42] tracking-[-0.4px] text-ink">
-            {paper.title}
+            <Link
+              href={detailHref}
+              className="after:absolute after:inset-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+            >
+              {paper.title}
+            </Link>
           </h3>
           <p className="text-[12.5px] leading-[1.65] text-ink-soft">{item.oneLine}</p>
           {assessment ? <EvidenceChips evidence={assessment.evidence} max={3} /> : null}
-          <SourceLink paper={paper} className="pointer-events-auto self-start" />
+          <SourceLink paper={paper} className="relative z-10 self-start" />
         </div>
       </article>
     )

@@ -46,6 +46,7 @@ export function SavedList({ rows }: { rows: SavedRow[] }) {
         ]}
         className="mt-4"
       />
+      <p className="mt-3 text-[11px] text-ink-muted">신뢰도 배지와 근거는 AI 보조 의견입니다</p>
 
       {shown.length === 0 ? (
         <p className="mt-6 text-sm text-ink-muted">
@@ -54,7 +55,12 @@ export function SavedList({ rows }: { rows: SavedRow[] }) {
       ) : (
         <ul className="mt-4 flex flex-col gap-3">
           {shown.map((row) => (
-            <li key={row.paperId} className="rounded-2xl border border-line bg-surface p-4">
+            <li
+              key={row.paperId}
+              className={`rounded-2xl bg-surface p-4 ${
+                row.track === 'notable' ? 'border-2 border-caution-line' : 'border border-line'
+              }`}
+            >
               <div className="flex flex-wrap items-center gap-2">
                 {row.track ? <TrackBadge track={row.track} /> : null}
                 <span className="text-[11px] text-ink-muted">{row.savedLabel}</span>

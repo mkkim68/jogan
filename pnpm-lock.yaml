@@ -215,6 +215,9 @@ importers:
       autoprefixer:
         specifier: ^10.6.1
         version: 10.6.1(postcss@8.5.28)
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(postgres@3.4.9)
       postcss:
         specifier: ^8.5.28
         version: 8.5.28
@@ -249,6 +252,12 @@ importers:
       next-auth:
         specifier: 5.0.0-beta.32
         version: 5.0.0-beta.32(next@16.3.5(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
+
+  services/briefer: {}
+
+  services/collector: {}
+
+  services/evaluator: {}
 
 packages:
 

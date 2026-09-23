@@ -43,6 +43,15 @@ function buildConclusion(assessment: Assessment, caution: boolean): string {
  */
 export function TrustDetail({ assessment, title }: Props) {
   const trust = summarizeTrust(assessment.evidence)
+  // 평가 스키마상 evidence는 최소 1건이라 실제로는 도달하지 않지만, `summarizeTrust`가
+  // 근거 없음을 `null`로 표현하게 됐으니(브리핑 수정 참고) 타입 그대로 방어한다.
+  if (!trust) {
+    return (
+      <div className="mt-5 rounded-2xl border border-line bg-surface p-5 text-sm leading-[1.6] text-ink-muted">
+        아직 평가 근거가 없습니다.
+      </div>
+    )
+  }
   const conclusion = buildConclusion(assessment, trust.caution)
 
   const byStage = new Map<number, Evidence[]>()

@@ -25,7 +25,7 @@ export function ProgressSegments({ position, total, className = '' }: Props) {
         ))}
       </div>
       <p className="mt-2 text-[11px] tabular-nums text-ink-muted">
-        {position + 1} / {total} · 탭하면 다음 장
+        {position + 1} / {total}
       </p>
     </div>
   )
