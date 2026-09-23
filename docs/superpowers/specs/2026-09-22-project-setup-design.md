@@ -22,7 +22,7 @@ pnpm dev        # /login → Google 로그인 → / 플레이스홀더
 |---|---|---|
 | 사용자 | 다중 사용자, 처음부터 인증 | 배포해서 본인과 멘토들이 쓴다 |
 | 인증 | Auth.js(next-auth v5) + Google + `@auth/drizzle-adapter`, DB 세션 | Next.js와 가장 자연스럽고 DB 선택과 독립 |
-| 호스팅 | Vercel + Neon. 로컬은 Docker `pgvector/pgvector:pg17` | CLAUDE.md "교체 가능" 항목의 기본값. CLAUDE.md에 기록 |
+| 호스팅 | Vercel + Neon. 로컬은 Docker `pgvector/pgvector:pg17`, 로컬 호스트 포트 5433 | CLAUDE.md "교체 가능" 항목의 기본값. CLAUDE.md에 기록 |
 | 모노레포 | pnpm workspaces만, Turborepo 없음 | 패키지 6개 규모에 캐시 이득 없음 |
 | 공유 패키지 소비 | `.ts` 소스 직접 export. web은 `transpilePackages`, 서비스는 `tsx` | 빌드 단계 제거 |
 | 타입 정의 | `packages/core`에 zod 스키마, 타입은 `z.infer` | 외부 API 파싱 규칙과 도메인 타입을 한 곳에서 |
@@ -146,13 +146,15 @@ vitest, 패키지별 설정.
 ## 환경변수
 
 ```
-DATABASE_URL=postgres://jogan:jogan@localhost:5432/jogan
+DATABASE_URL=postgres://jogan:jogan@localhost:5433/jogan
 AUTH_SECRET=
 AUTH_GOOGLE_ID=
 AUTH_GOOGLE_SECRET=
 ANTHROPIC_API_KEY=          # 파이프라인 세션부터 사용
 SEED_USER_EMAIL=
 ```
+
+로컬 호스트 포트는 5433 (5432는 다른 프로젝트가 점유). 컨테이너 내부는 5432.
 
 Google OAuth 클라이언트는 사용자가 Google Cloud 콘솔에서 만든다. 리다이렉트 URI `http://localhost:3000/api/auth/callback/google`. README에 절차를 적는다.
 
