@@ -24,6 +24,9 @@ const TABS: Tab[] = [
 export function BottomTabs() {
   const pathname = usePathname()
 
+  // `/audio`는 앱에서 유일한 다크 전체 화면(docs/DESIGN.md §6)이라 하단 탭을 가린다.
+  if (pathname === '/audio') return null
+
   return (
     <nav aria-label="주요 이동" className="fixed inset-x-0 bottom-0 z-10 tablet:hidden">
       <div className="flex h-14 border-t border-line bg-paper-raised">
