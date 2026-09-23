@@ -3,9 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3100",
     "build": "next build",
-    "start": "next start",
+    "start": "next start --port 3100",
+    "test": "vitest run",
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.6.1",
+    "drizzle-orm": "^0.45.3",
     "postcss": "^8.5.28",
     "tailwindcss": "^3.4.19"
   }

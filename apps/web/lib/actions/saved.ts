@@ -1,0 +1,37 @@
+'use server'
+
+import { isSaved, markRead, savePaper, unsavePaper } from '@jogan/db'
+import { revalidatePath } from 'next/cache'
+import { requireUser } from '@/lib/session'
+
+/**
+ * 저장 토글 / 읽음 표시 서버 액션.
+ *
+ * `userId`는 클라이언트에서 절대 받지 않는다 — 항상 `requireUser()`로 서버 세션에서 얻는다.
+ * `paperId`만 클라이언트(폼 action의 bind된 인자)에서 넘어온다.
+ */
+
+export async function toggleSave(paperId: string): Promise<void> {
+  const user = await requireUser()
+  const alreadySaved = await isSaved(user.id, paperId)
+
+  if (alreadySaved) {
+    await unsavePaper(user.id, paperId)
+  } else {
+    await savePaper(user.id, paperId)
+  }
+
+  revalidatePath(`/paper/${paperId}`)
+  revalidatePath('/saved')
+  // TopBar(`/`)가 "저장함 N"을 렌더한다 — 토글 직후에도 그 카운트가 낡지 않게 한다.
+  revalidatePath('/')
+}
+
+export async function markPaperRead(paperId: string): Promise<void> {
+  const user = await requireUser()
+  await markRead(user.id, paperId)
+
+  revalidatePath(`/paper/${paperId}`)
+  revalidatePath('/saved')
+  revalidatePath('/')
+}

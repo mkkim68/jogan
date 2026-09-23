@@ -1,15 +1,12 @@
 import { eq } from 'drizzle-orm'
 import { db } from './client'
+import { todayInSeoul } from './queries'
 import {
   assessments, briefItems, briefs, interests, papers, savedItems, userSettings, users,
 } from './schema'
 import { buildSeed } from './seed-data'
 
 const SEED_USER_ID = '00000000-0000-4000-8000-000000000001'
-
-function todayInSeoul(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
-}
 
 // 로컬 개발용 시드. SEED_USER_EMAIL을 바꾸면 고정 id가 충돌하고, 파이프라인이 실제 브리핑을
 // 쓰기 시작하면 briefs_user_date 유니크와 충돌할 수 있다 — 그 시점엔 시드를 지우거나 날짜를 바꾼다.

@@ -8,6 +8,13 @@
       "when": 1790056157101,
       "tag": "0000_new_thor",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790145967937,
+      "tag": "0001_big_monster_badoon",
+      "breakpoints": true
     }
   ]
 }

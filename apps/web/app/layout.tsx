@@ -1,6 +1,21 @@
+import { IBM_Plex_Sans_KR, Nanum_Myeongjo } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import './globals.css'
+
+const display = Nanum_Myeongjo({
+  subsets: ['latin'],
+  weight: ['400', '700', '800'],
+  variable: '--font-display',
+  display: 'swap',
+})
+
+const body = IBM_Plex_Sans_KR({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-body',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: '조간 논문',
@@ -14,17 +29,9 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
-const FONTS_URL =
-  'https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap'
-
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ko">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="stylesheet" href={FONTS_URL} />
-      </head>
+    <html lang="ko" className={`${display.variable} ${body.variable}`}>
       <body className="min-h-dvh">{children}</body>
     </html>
   )

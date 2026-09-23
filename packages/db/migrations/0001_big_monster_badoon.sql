@@ -1,0 +1,1 @@
+ALTER TABLE "interests" ADD CONSTRAINT "interests_user_label" UNIQUE("user_id","label");
