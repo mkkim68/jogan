@@ -13,6 +13,8 @@ pnpm db:seed                # SEED_USER_EMAIL 필요
 pnpm dev                    # http://localhost:3100
 ```
 
+로컬에서 프로덕션 빌드를 확인하려면 `pnpm build && pnpm --filter @jogan/web start`. 이때는 `.env`에 `AUTH_TRUST_HOST=true`가 있어야 한다(`next dev`는 자동으로 localhost를 신뢰하지만 `next start`는 아니다 — Vercel 배포에서는 필요 없다).
+
 ## .env 채우기
 
 - `AUTH_SECRET` — `openssl rand -base64 32`
