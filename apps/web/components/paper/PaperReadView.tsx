@@ -146,13 +146,18 @@ export function PaperReadView({ detail, related, position, total, briefDate }: P
                     <p className="font-display text-[13.5px] italic leading-[1.7] text-ink-body">
                       &ldquo;{quote.text}&rdquo;
                     </p>
-                    <p className="mt-2 text-xs text-ink-muted">
+                    <p className="mt-2">
                       {href ? (
-                        <a href={href} target="_blank" rel="noreferrer" className="hover:text-ink hover:underline">
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex min-h-11 items-center text-xs text-ink-muted hover:text-ink hover:underline"
+                        >
                           원문 {quote.locator} · 클릭하면 원문으로 이동
                         </a>
                       ) : (
-                        `원문 ${quote.locator}`
+                        <span className="text-xs text-ink-muted">원문 {quote.locator}</span>
                       )}
                     </p>
                   </blockquote>
