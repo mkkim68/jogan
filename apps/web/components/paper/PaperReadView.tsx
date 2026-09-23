@@ -1,7 +1,8 @@
 import type { BriefItem, PaperSummary } from '@jogan/core'
 import type { PaperDetail } from '@jogan/db'
 import Link from 'next/link'
-import { ExternalLinkIcon } from '@/components/icons'
+import { ExternalLinkIcon, WarningTriangleIcon } from '@/components/icons'
+import { formatIssueDate } from '@/components/shell/Masthead'
 import { sourceUrl } from '@/lib/link'
 import { formatAuthors, splitParenthetical } from '@/lib/paper-format'
 import { TrackBadge } from './TrackBadge'
@@ -10,6 +11,33 @@ type Props = {
   detail: PaperDetail
   /** 같은 브리핑에 실린 다른 논문. 관계는 계산하지 않고 고정 문구로만 안내한다 */
   related: PaperSummary[]
+  /** 오늘 브리핑 안에서 이 논문의 0-based 위치. 브리핑에 없으면 -1 */
+  position: number
+  /** 오늘 브리핑의 전체 편수. 0이면 브리핑에 속하지 않는다 */
+  total: number
+  /** 오늘 브리핑의 날짜(YYYY-MM-DD). 브리핑이 없으면 null */
+  briefDate: string | null
+}
+
+/** 4단계 신뢰도 필터 — CLAUDE.md/PRD가 정한 파이프라인 구조 상수. 점수나 논문별 수치가 아니다 */
+const TOTAL_STAGES = 4
+
+/**
+ * "N단계 통과" 배지 문구. `evidence`의 실제 verdict에서 계산한다 — "4단계 통과"를
+ * 모든 논문에 고정으로 쓰면 `notable`(심사 전) 논문에는 거짓이 되므로 지어내지 않는다.
+ */
+function summarizeTrust(evidence: { stage: 1 | 2 | 3 | 4; verdict: 'pass' | 'caution' }[]): {
+  label: string
+  caution: boolean
+} {
+  const cautionEvidence = evidence.filter((e) => e.verdict === 'caution')
+  const cautionStages = new Set(cautionEvidence.map((e) => e.stage))
+  const passedStageCount = TOTAL_STAGES - cautionStages.size
+
+  if (cautionEvidence.length === 0) {
+    return { label: `${passedStageCount}단계 필터 전부 통과`, caution: false }
+  }
+  return { label: `${passedStageCount}단계 통과 · ${cautionEvidence.length}건 유의`, caution: true }
 }
 
 const SIDE_LABEL = 'text-[11px] font-semibold tracking-[1px] text-ink-muted'
@@ -27,37 +55,67 @@ function buildCoreLines(item: BriefItem | null): string[] | null {
   return lines
 }
 
-export function PaperReadView({ detail, related }: Props) {
+export function PaperReadView({ detail, related, position, total, briefDate }: Props) {
   const { paper, assessment, briefItem } = detail
   const caution = assessment?.track === 'notable'
   const href = sourceUrl(paper)
   const authorsLine = formatAuthors(paper.authors)
   const idLine = paper.arxivId ? `arXiv:${paper.arxivId}` : paper.doi ? `DOI:${paper.doi}` : null
   const coreLines = buildCoreLines(briefItem)
+  const inBrief = position >= 0 && total > 0
+  const trust = assessment ? summarizeTrust(assessment.evidence) : null
 
   return (
-    <div className="hidden px-7 py-8 tablet:grid tablet:grid-cols-[236px_776px_300px] tablet:gap-7">
-      {/* 좌: 함께 읽으면 좋은 논문 — 관계는 계산하지 않고 고정 문구만 쓴다 */}
-      <aside className="flex flex-col gap-8">
-        {related.length > 0 ? (
-          <div>
-            <h2 className={SIDE_LABEL}>함께 읽으면 좋은 논문</h2>
-            <ul className="mt-3 flex flex-col gap-3">
-              {related.map((relatedPaper) => (
-                <li key={relatedPaper.id}>
-                  <Link
-                    href={`/paper/${relatedPaper.id}`}
-                    className="block text-sm font-medium leading-snug text-ink hover:underline"
-                  >
-                    {relatedPaper.title}
-                  </Link>
-                  <p className="mt-1 text-xs leading-relaxed text-ink-muted">같은 날 브리핑에 함께 실린 논문</p>
-                </li>
-              ))}
-            </ul>
-          </div>
+    <div>
+      {/* 상단: 브리핑으로 돌아가기 + 오늘 브리핑 안에서의 위치 */}
+      <div className="flex items-center justify-between px-7 pt-6">
+        <Link href="/" className="inline-flex h-11 items-center text-sm font-medium text-ink-dim hover:text-ink">
+          ← 브리핑
+        </Link>
+        {inBrief && briefDate ? (
+          <p className="text-xs text-ink-muted">
+            {formatIssueDate(briefDate)} 브리핑 · {position + 1}번째 논문
+          </p>
         ) : null}
-      </aside>
+      </div>
+
+      <div className="grid grid-cols-[236px_776px_300px] gap-7 px-7 pb-8 pt-4">
+        {/* 좌: 읽는 순서(진행률) + 함께 읽으면 좋은 논문 */}
+        <aside className="flex flex-col gap-8">
+          {inBrief ? (
+            <div>
+              <h2 className={SIDE_LABEL}>읽는 순서</h2>
+              <p className="mt-2 text-sm tabular-nums text-ink-body">
+                {position + 1} / {total}
+              </p>
+              <div className="mt-2 h-[3px] w-full rounded-full bg-line" aria-hidden="true">
+                <div
+                  className="h-full rounded-full bg-verified"
+                  style={{ width: `${((position + 1) / total) * 100}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {related.length > 0 ? (
+            <div>
+              <h2 className={SIDE_LABEL}>함께 읽으면 좋은 논문</h2>
+              <ul className="mt-3 flex flex-col gap-3">
+                {related.map((relatedPaper) => (
+                  <li key={relatedPaper.id}>
+                    <Link
+                      href={`/paper/${relatedPaper.id}`}
+                      className="block text-sm font-medium leading-snug text-ink hover:underline"
+                    >
+                      {relatedPaper.title}
+                    </Link>
+                    <p className="mt-1 text-xs leading-relaxed text-ink-muted">같은 날 브리핑에 함께 실린 논문</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </aside>
 
       {/* 중앙: 요약과 원문의 교차 */}
       <main
@@ -159,6 +217,14 @@ export function PaperReadView({ detail, related }: Props) {
           </section>
         )}
 
+        {/* 그림 자리 — 원문 PDF 렌더링은 후속 과제(docs/DESIGN.md §7)라 자리만 비워둔다 */}
+        <div
+          role="presentation"
+          className="mt-8 flex h-40 max-w-prose items-center justify-center rounded-xl border border-dashed border-line-strong text-xs text-ink-muted"
+        >
+          원문 그림을 불러올 자리
+        </div>
+
         {href ? (
           <a
             href={href}
@@ -174,17 +240,27 @@ export function PaperReadView({ detail, related }: Props) {
 
       {/* 우: 도구 — 신뢰도 근거, 내 메모 */}
       <aside className="flex flex-col gap-8">
-        {assessment ? (
+        {assessment && trust ? (
           <div>
             <h2 className={SIDE_LABEL}>신뢰도 근거</h2>
-            <p className="mt-1 text-[11px] text-ink-muted">AI 보조 의견입니다 — 최종 판단은 읽는 사람의 몫입니다.</p>
+            <span
+              className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] font-medium ${
+                trust.caution ? 'bg-caution-bg text-caution' : 'bg-verified-bg text-verified'
+              }`}
+            >
+              {trust.label}
+            </span>
+            <p className="mt-2 text-[11px] text-ink-muted">AI 보조 의견입니다 — 최종 판단은 읽는 사람의 몫입니다.</p>
             <ul className="mt-3 flex flex-col gap-2">
               {assessment.evidence.slice(0, 4).map((evidence, index) => (
                 <li
                   key={index}
-                  className={`text-xs leading-relaxed ${evidence.verdict === 'caution' ? 'text-caution' : 'text-ink-body'}`}
+                  className={`flex items-start gap-1.5 text-xs leading-relaxed ${evidence.verdict === 'caution' ? 'text-caution' : 'text-ink-body'}`}
                 >
-                  {evidence.text}
+                  {evidence.verdict === 'caution' ? (
+                    <WarningTriangleIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  ) : null}
+                  <span>{evidence.text}</span>
                 </li>
               ))}
             </ul>
@@ -218,6 +294,7 @@ export function PaperReadView({ detail, related }: Props) {
           </button>
         </div>
       </aside>
+      </div>
     </div>
   )
 }

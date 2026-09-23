@@ -23,6 +23,8 @@ export async function toggleSave(paperId: string): Promise<void> {
 
   revalidatePath(`/paper/${paperId}`)
   revalidatePath('/saved')
+  // TopBar(`/`)가 "저장함 N"을 렌더한다 — 토글 직후에도 그 카운트가 낡지 않게 한다.
+  revalidatePath('/')
 }
 
 export async function markPaperRead(paperId: string): Promise<void> {
@@ -31,4 +33,5 @@ export async function markPaperRead(paperId: string): Promise<void> {
 
   revalidatePath(`/paper/${paperId}`)
   revalidatePath('/saved')
+  revalidatePath('/')
 }

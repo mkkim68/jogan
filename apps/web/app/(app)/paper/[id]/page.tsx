@@ -21,14 +21,21 @@ export default async function PaperPage({ params }: { params: Promise<{ id: stri
     getTodayBrief(user.id, todayInSeoul()),
   ])
   const position = brief?.items.findIndex((item) => item.paper.id === id) ?? -1
+  const total = brief?.items.length ?? 0
 
   return (
     <>
       <div className="tablet:hidden">
-        <PaperCardView detail={detail} position={position} total={brief?.items.length ?? 0} />
+        <PaperCardView detail={detail} position={position} total={total} />
       </div>
       <div className="hidden tablet:block">
-        <PaperReadView detail={detail} related={related} />
+        <PaperReadView
+          detail={detail}
+          related={related}
+          position={position}
+          total={total}
+          briefDate={brief?.brief.date ?? null}
+        />
       </div>
     </>
   )
