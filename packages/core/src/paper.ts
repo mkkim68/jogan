@@ -41,3 +41,7 @@ export const Paper = z.object({
   mergedInto: z.uuid().nullable(),
 })
 export type Paper = z.infer<typeof Paper>
+
+/** 목록 화면용. 1024차원 임베딩을 끌고 오지 않는다 */
+export const PaperSummary = Paper.omit({ embedding: true })
+export type PaperSummary = z.infer<typeof PaperSummary>
