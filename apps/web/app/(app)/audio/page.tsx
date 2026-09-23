@@ -19,7 +19,14 @@ const ORDER_LABEL = 'text-[11px] font-semibold tracking-[1px] text-night-dim'
  * 요약 문장 전체를 같은 톤(`night-soft`)으로 보여준다 — 실제 브리핑 데이터이되, 재생
  * 진행을 흉내 내지는 않는다.
  *
- * 하단 탭은 이 화면에서 숨긴다 (`BottomTabs`가 `pathname === '/audio'`일 때 `null`을 반환).
+ * 페이지 루트는 `fixed inset-0`으로 뷰포트 전체를 덮는다 — 그렇지 않으면 ≥720px의 밝은
+ * `TopBar`와 폰 폭에서 `(app)/layout.tsx`의 하단 패딩이 만드는 `bg-paper` 띠가 다크 화면
+ * 아래로 비쳐 보인다("반전"이 절반만 되는 문제). `overflow-y-auto`로 내용이 길 때 이
+ * 오버레이 안에서 스크롤한다.
+ *
+ * 하단 탭은 그와 별개로 숨긴다 (`BottomTabs`가 `pathname === '/audio'`일 때 `null`을 반환) —
+ * 오버레이가 시각적으로 가려도 DOM에 탭이 남아 있으면 Tab 키로 오버레이 아래 요소에 도달할
+ * 수 있기 때문에 두 가지가 함께 필요하다.
  */
 export default async function AudioPage() {
   const user = await requireUser()
@@ -30,7 +37,7 @@ export default async function AudioPage() {
 
   if (!view || view.items.length === 0) {
     return (
-      <div className="min-h-dvh bg-night px-5 pt-4 text-night-text">
+      <div className="fixed inset-0 z-20 overflow-y-auto bg-night px-5 pt-4 text-night-text">
         <TopRow />
         <div className="mt-16 flex flex-col items-center gap-2 px-4 text-center">
           <p className="text-sm text-night-soft">아직 들을 브리핑이 없습니다.</p>
@@ -52,7 +59,7 @@ export default async function AudioPage() {
   const paper = current.paper
 
   return (
-    <div className="min-h-dvh bg-night px-5 pb-10 pt-4 text-night-text">
+    <div className="fixed inset-0 z-20 overflow-y-auto bg-night px-5 pb-10 pt-4 text-night-text">
       <TopRow />
 
       <section className="mt-8">
