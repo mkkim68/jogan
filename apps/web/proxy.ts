@@ -10,6 +10,10 @@ export function proxy(req: NextRequest) {
   if (isPublic) return NextResponse.next()
   if (SESSION_COOKIES.some((c) => req.cookies.has(c))) return NextResponse.next()
 
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
   const url = req.nextUrl.clone()
   url.pathname = '/login'
   url.search = ''

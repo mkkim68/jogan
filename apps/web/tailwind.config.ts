@@ -22,8 +22,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ['"Nanum Myeongjo"', 'serif'],
-        body: ['"IBM Plex Sans KR"', 'sans-serif'],
+        display: ['var(--font-display)', 'serif'],
+        body: ['var(--font-body)', 'sans-serif'],
       },
       maxWidth: { prose: '660px' },
       screens: { tablet: '720px', desktop: '1080px' },
