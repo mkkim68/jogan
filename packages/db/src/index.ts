@@ -1,2 +1,3 @@
 export { db, type Db } from './client'
 export * from './schema'
+export * from './queries'
