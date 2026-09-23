@@ -38,16 +38,12 @@ export default async function BriefingPage() {
   const user = await requireUser()
   const today = todayInSeoul()
 
-  const [todayView, interests, streak, byInterest, saved] = await Promise.all([
-    getTodayBrief(user.id, today),
-    listInterests(user.id),
-    countStreak(user.id, today),
-    countByInterest(user.id, 7),
-    listSaved(user.id),
-  ])
+  const todayView = await getTodayBrief(user.id, today)
   const view = todayView ?? (await getLatestBrief(user.id))
 
   // 브리핑이 하나도 없다 — 빈 브리핑을 보여주지 않는다 (docs/DESIGN.md §4, PRD §5)
+  // 나머지 쿼리는 브리핑이 있을 때만 필요하므로, 없으면 여기서 바로 빈 상태로 반환하고
+  // interests·streak·byInterest·saved를 미리 가져와 버리지 않는다.
   if (!view) {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-prose flex-col items-center justify-center gap-3 px-6 text-center">
@@ -62,6 +58,13 @@ export default async function BriefingPage() {
       </div>
     )
   }
+
+  const [interests, streak, byInterest, saved] = await Promise.all([
+    listInterests(user.id),
+    countStreak(user.id, today),
+    countByInterest(user.id, 7),
+    listSaved(user.id),
+  ])
 
   const staleLabel = view.isToday ? null : formatStaleLabel(view.brief.date)
   const totalCount = view.items.length
@@ -81,11 +84,12 @@ export default async function BriefingPage() {
       {/* 폰 (< 720px) — 1칼럼 */}
       <div className="px-5 pb-8 pt-6 tablet:hidden">
         <Masthead date={view.brief.date} issueNumber={view.brief.issueNumber} />
-        {staleLabel ? <p className="mt-3 text-xs font-medium text-caution">{staleLabel}</p> : null}
+        {staleLabel ? <p className="mt-3 text-xs font-medium text-ink-muted">{staleLabel}</p> : null}
         <p className="mt-4 text-sm text-ink-body">
           관심사 {interests.length}개에서 오늘 <span className="font-semibold text-ink">{totalCount}편</span>을
           골랐습니다 · 읽기 {view.brief.readMinutes}분
         </p>
+        <p className="mt-1.5 text-[11px] text-ink-muted">신뢰도 배지와 근거는 AI 보조 의견입니다</p>
         <AudioStrip seconds={view.brief.audioSeconds} className="mt-4" />
         <ul className="mt-5 flex flex-col gap-3">
           {view.items.map(({ item, paper, assessment }) => (
@@ -147,11 +151,12 @@ export default async function BriefingPage() {
         </aside>
 
         <main className="flex min-w-0 flex-col gap-6">
-          {staleLabel ? <p className="text-xs font-medium text-caution">{staleLabel}</p> : null}
+          {staleLabel ? <p className="text-xs font-medium text-ink-muted">{staleLabel}</p> : null}
           <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="font-display text-[30px] font-extrabold tracking-[-0.9px] text-ink">오늘의 브리핑</h1>
               <p className="mt-1 text-sm text-ink-muted">오늘 {totalCount}편을 골랐습니다</p>
+              <p className="mt-1 text-[11px] text-ink-muted">신뢰도 배지와 근거는 AI 보조 의견입니다</p>
             </div>
             {view.brief.audioSeconds != null ? (
               <Link
