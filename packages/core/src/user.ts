@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_INTERESTS } from './constants'
 
 export const User = z.object({
   id: z.string().min(1),
@@ -19,13 +20,18 @@ export type UserSettings = z.infer<typeof UserSettings>
 
 /** `/onboarding` 제출값. userId는 서버 액션이 세션에서 채운다 — 클라이언트에서 받지 않는다 */
 export const OnboardingInput = UserSettings.omit({ userId: true }).extend({
-  labels: z.array(z.string().min(1)).min(1).max(5),
+  labels: z.array(z.string().min(1)).min(1).max(MAX_INTERESTS),
 })
 export type OnboardingInput = z.infer<typeof OnboardingInput>
 
-/** `/interests` 관심사 추가 제출값. `OnboardingInput`의 라벨 제약(1~5개)과 동일하게 맞춘다 */
+/**
+ * `/interests` 관심사 추가 제출값. `OnboardingInput`의 라벨 제약(1~`MAX_INTERESTS`개)과
+ * 동일하게 맞춘다 — 이건 "한 번에 제출하는 개수"의 상한이다. 사용자가 가질 수 있는
+ * **관심사 총 개수**의 상한(`MAX_INTERESTS`) 자체는 액션(`addInterestsAction`)이
+ * 기존 개수와 합산해 강제한다.
+ */
 export const AddInterestsInput = z.object({
-  labels: z.array(z.string().min(1)).min(1).max(5),
+  labels: z.array(z.string().min(1)).min(1).max(MAX_INTERESTS),
 })
 export type AddInterestsInput = z.infer<typeof AddInterestsInput>
 

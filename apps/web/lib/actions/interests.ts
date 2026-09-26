@@ -1,6 +1,6 @@
 'use server'
 
-import { AddInterestsInput, Interest, OnboardingInput, SettingsInput } from '@jogan/core'
+import { AddInterestsInput, Interest, MAX_INTERESTS, OnboardingInput, SettingsInput } from '@jogan/core'
 import { addInterests, completeOnboarding, deleteInterest, listInterests, updateSettings } from '@jogan/db'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -74,7 +74,12 @@ export async function submitOnboarding(
  * 폼 필드 모양은 `submitOnboarding`과 맞춘다 — 칩으로 고른 `labels`(복수)와 직접 입력한
  * `customLabel`(단수) 하나를 합쳐 검증한다.
  *
- * 중복 라벨은 `addInterests`의 `onConflictDoNothing()`이 조용히 무시하므로 여기서 따로 걸러내지 않는다.
+ * `AddInterestsInput`의 `.max(MAX_INTERESTS)`는 "이번 제출 한 건"의 상한일 뿐이다.
+ * 반복 호출로 총 개수가 무한정 늘어나는 것을 막기 위해, 여기서 기존 개수 + 새 라벨 수를
+ * 합산해 `MAX_INTERESTS`를 넘으면 쓰지 않는다. DB의 `interests_user_label` 유니크 인덱스 +
+ * `onConflictDoNothing()` 때문에 이미 가진 라벨을 다시 제출해도 행이 늘지 않으므로,
+ * 한도 계산은 "기존 라벨과 겹치지 않는 새 라벨 수"만 센다 — 안 그러면 이미 가진 라벨만
+ * 다시 제출했을 뿐인데 한도 초과로 거부되는 이상한 경우가 생긴다.
  *
  * 재검증: 이 화면 자체(`/interests`)와 `/`(좌 레일의 관심사 목록·관심사별 카운트)만 관심사 데이터를
  * 보여준다 — `TopBar`는 저장함 개수만, `(app)/layout.tsx`는 관심사 유무만 보고 리다이렉트 여부를
@@ -102,7 +107,18 @@ export async function addInterestsAction(
       error:
         labels.length === 0
           ? '관심사를 하나 이상 입력해 주세요.'
-          : '관심사는 한 번에 최대 5개까지 추가할 수 있습니다.',
+          : `관심사는 한 번에 최대 ${MAX_INTERESTS}개까지 추가할 수 있습니다.`,
+    }
+  }
+
+  const existing = await listInterests(user.id)
+  const existingLabels = new Set(existing.map((interest) => interest.label))
+  const newLabels = [...new Set(parsed.data.labels)].filter((label) => !existingLabels.has(label))
+
+  if (existing.length + newLabels.length > MAX_INTERESTS) {
+    const remaining = Math.max(MAX_INTERESTS - existing.length, 0)
+    return {
+      error: `관심사는 최대 ${MAX_INTERESTS}개까지입니다. 지금 ${existing.length}개이므로 ${remaining}개만 더 추가할 수 있습니다.`,
     }
   }
 
