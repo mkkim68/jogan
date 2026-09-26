@@ -155,7 +155,6 @@ export default async function BriefingPage() {
               <p className="mt-1 text-sm text-ink-muted">
                 {todayPrefix}
                 {mainItems.length}편을 골랐습니다
-                {serendipity ? ' · 곁가지 1편 포함' : ''}
               </p>
               <p className="mt-1 text-[11px] text-ink-muted">신뢰도 배지와 근거는 AI 보조 의견입니다</p>
             </div>
@@ -218,7 +217,7 @@ export default async function BriefingPage() {
 
           {serendipity ? (
             <div>
-              <h2 className={SIDE_LABEL}>오늘의 곁가지</h2>
+              <h2 className={SIDE_LABEL}>이런 논문은 어떠세요?</h2>
               <div
                 className={`mt-3 rounded-xl bg-surface p-3 ${
                   serendipity.assessment?.track === 'notable' ? 'border-2 border-caution-line' : 'border border-line'

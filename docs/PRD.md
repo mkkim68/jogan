@@ -153,7 +153,7 @@ type BriefItem = {
   method: string; results: { label: string; value: string }[]
   limitations: { bySource: 'author' | 'ai'; text: string }[]
   quotes: { text: string; locator: string }[]   // 원문 인용 + "§3.2, p.4"
-  isSerendipity: boolean        // 관심사 바깥에서 섞은 곁가지 1편
+  isSerendipity: boolean        // 관심 주제와 유사한(주변) 곁가지 1편
 }
 
 type SavedItem = {
