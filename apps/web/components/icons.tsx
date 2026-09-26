@@ -186,6 +186,23 @@ export function InterestIcon(props: IconProps) {
   )
 }
 
+/** 설정 탭: 톱니(다이얼) 모양. */
+export function SettingsIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 3.5v2.4" />
+      <path d="M12 18.1v2.4" />
+      <path d="M5.4 5.4l1.7 1.7" />
+      <path d="M16.9 16.9l1.7 1.7" />
+      <path d="M3.5 12h2.4" />
+      <path d="M18.1 12h2.4" />
+      <path d="M5.4 18.6l1.7-1.7" />
+      <path d="M16.9 7.1l1.7-1.7" />
+    </Icon>
+  )
+}
+
 /** 삭제: 휴지통. `/interests`의 관심사 삭제 버튼용. */
 export function TrashIcon(props: IconProps) {
   return (

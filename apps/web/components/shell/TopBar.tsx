@@ -10,7 +10,10 @@ type Props = {
 
 /**
  * 웹 전용 상단바 (docs/DESIGN.md §3, §6). 높이 66px, 좌우 여백 28px.
- * 제호 · 날짜/호수 · 검색(준비 중, disabled) · 아카이브(준비 중, disabled) · 저장함 N · 아바타 32px.
+ * 제호 · 날짜/호수 · 검색(준비 중, disabled) · 아카이브(준비 중, disabled) · 저장함 N · 설정 · 아바타 32px.
+ *
+ * `설정`은 DESIGN.md §6 시안에는 없다 — `/settings` 화면이 새로 생기며 추가된 항목이라
+ * 기존 저장함 링크 옆, 아바타 앞에 같은 스타일(44px 터치 영역)로 붙인다.
  *
  * 호수는 가장 최근 브리핑에서 가져온다. 신규 사용자처럼 브리핑이 아직 없으면 날짜만 표시한다
  * (가짜 호수를 만들지 않는다).
@@ -52,6 +55,12 @@ export async function TopBar({ user, today }: Props) {
           className="flex h-11 items-center px-3 text-sm font-medium text-ink-dim hover:text-ink"
         >
           저장함 {savedCount}
+        </Link>
+        <Link
+          href="/settings"
+          className="flex h-11 items-center px-3 text-sm font-medium text-ink-dim hover:text-ink"
+        >
+          설정
         </Link>
         {user.image ? (
           // eslint-disable-next-line @next/next/no-img-element -- 외부(Google) 아바타, next/image 도메인 설정 범위 밖

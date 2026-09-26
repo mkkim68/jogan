@@ -116,7 +116,7 @@ export default async function BriefingPage() {
               ))}
             </ul>
             <Link
-              href="/onboarding"
+              href="/interests"
               className="mt-3 flex h-11 items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-line-strong text-sm font-medium text-ink-dim hover:bg-paper-raised"
             >
               <PlusIcon className="h-4 w-4" />
