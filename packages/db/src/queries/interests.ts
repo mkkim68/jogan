@@ -73,6 +73,12 @@ export async function addInterests(userId: string, labels: string[]): Promise<vo
  * WHERE에 안 걸림), 지금 가진 관심사가 1개뿐이라(잠근 뒤 센 개수가 1 이하) 지우지 못했으면
  * `false`다. 호출부가 "성공" / "이미 없음 또는 남의 것" / "마지막 1개"를 구분해 사용자에게
  * 알릴 수 있도록, 성공과 실패를 항상 구분 가능한 형태로 돌려준다.
+ *
+ * `.orderBy(interests.id)`는 잠그는 행의 순서를 결정적으로 만든다 — 정렬이 없으면 동시에
+ * 도는 두 트랜잭션이 서로 다른 스캔 순서로 행을 잠글 수 있어(예: 하나는 id 순, 다른 하나는
+ * 물리적 저장 순) `40P01 deadlock`이 이론상 가능하다. 여기엔 이 트랜잭션을 감싸는 재시도가
+ * 없으므로 데드락이 나면 그대로 throw된다. 순서를 고정하면 두 트랜잭션이 항상 같은 순서로
+ * 잠그려 시도하므로 그 가능성 자체가 없어진다 — 단점은 없다.
  */
 export async function deleteInterest(userId: string, interestId: string): Promise<boolean> {
   return db.transaction(async (tx) => {
@@ -80,6 +86,7 @@ export async function deleteInterest(userId: string, interestId: string): Promis
       .select({ id: interests.id })
       .from(interests)
       .where(eq(interests.userId, userId))
+      .orderBy(interests.id)
       .for('update')
 
     if (owned.length <= 1) return false
