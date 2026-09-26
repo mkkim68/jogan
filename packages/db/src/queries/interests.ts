@@ -56,30 +56,41 @@ export async function addInterests(userId: string, labels: string[]): Promise<vo
 /**
  * 관심사 삭제 — `userId`도 WHERE에 들어가므로 다른 사용자의 행은 절대 지울 수 없다.
  *
- * "마지막 1개는 삭제 금지" 불변식을 DELETE 문 안의 서브쿼리 조건으로 함께 건다. 호출부
- * (`removeInterestAction`)의 사전 카운트 검사는 빠른 피드백용으로 남겨두지만, 그 검사와
- * 실제 삭제 사이에는 시간차가 있어 동시에 두 요청이 도착하면 둘 다 통과해 관심사가 0개가
- * 될 수 있었다(TOCTOU) — 그 경쟁에서 지면 복구 경로(`/onboarding` 재진입)가 `user_settings`를
- * 하드코딩 기본값으로 덮어써 버리므로 대가가 크다. 조건을 SQL 한 문장 안에 넣으면 그 경쟁이
- * 사라진다.
+ * "마지막 1개는 삭제 금지" 불변식은 트랜잭션 안에서 이 사용자의 관심사 행들을
+ * `SELECT ... FOR UPDATE`로 먼저 잠근 뒤 개수를 세고, 그 잠금이 유지된 채로 DELETE를
+ * 실행해 지킨다. **DELETE 문 하나에 넣은 서브쿼리 `count(*)` 조건만으로는 이 경쟁이
+ * 닫히지 않는다** — READ COMMITTED에서 서브쿼리 `SELECT`는 행을 잠그지 않으므로,
+ * 관심사가 정확히 2개일 때 **서로 다른 두 행**을 동시에 지우는 두 요청은 각자 자기
+ * DELETE가 실행되는 순간의 스냅샷에서 똑같이 `count = 2`를 보고 둘 다 조건을 통과해버려
+ * 0개가 될 수 있다(같은 행을 동시에 지우는 경쟁만 막혔을 뿐, 서로 다른 행을 지우는
+ * 경쟁은 열려 있었다). `FOR UPDATE`로 먼저 행을 잠그면 두 번째 트랜잭션은 첫 번째가
+ * 커밋(또는 롤백)할 때까지 그 SELECT에서 블로킹되고, 커밋 후 다시 읽는 개수는 이미
+ * 줄어든 상태이므로 정확히 판정한다. 이게 중요한 이유: 관심사가 0개가 되면 복구 경로
+ * (`/onboarding` 재진입 → `completeOnboarding`)가 온보딩 폼의 하드코딩 기본값으로
+ * `user_settings`를 조용히 덮어써 버린다 — 대가가 큰 조용한 데이터 손실이다.
  *
  * 반환값은 실제로 지웠는지를 알려준다 — `interestId`가 없거나 남의 것이거나(행 자체가
- * WHERE에 안 걸림), 지금 가진 관심사가 1개뿐이라(서브쿼리 조건 불충족) 지우지 못했으면
+ * WHERE에 안 걸림), 지금 가진 관심사가 1개뿐이라(잠근 뒤 센 개수가 1 이하) 지우지 못했으면
  * `false`다. 호출부가 "성공" / "이미 없음 또는 남의 것" / "마지막 1개"를 구분해 사용자에게
  * 알릴 수 있도록, 성공과 실패를 항상 구분 가능한 형태로 돌려준다.
  */
 export async function deleteInterest(userId: string, interestId: string): Promise<boolean> {
-  const rows = await db
-    .delete(interests)
-    .where(
-      and(
-        eq(interests.userId, userId),
-        eq(interests.id, interestId),
-        sql`(select count(*) from ${interests} i2 where i2.user_id = ${userId}) > 1`,
-      ),
-    )
-    .returning({ id: interests.id })
-  return rows.length > 0
+  return db.transaction(async (tx) => {
+    const owned = await tx
+      .select({ id: interests.id })
+      .from(interests)
+      .where(eq(interests.userId, userId))
+      .for('update')
+
+    if (owned.length <= 1) return false
+
+    const deleted = await tx
+      .delete(interests)
+      .where(and(eq(interests.userId, userId), eq(interests.id, interestId)))
+      .returning({ id: interests.id })
+
+    return deleted.length > 0
+  })
 }
 
 /**

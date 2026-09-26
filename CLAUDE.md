@@ -90,7 +90,8 @@ pnpm typecheck
 - **비용**: 파이프라인은 싼 필터가 앞에 오는 깔때기다. 순서를 바꾸지 말 것. LLM 본문 평가는 사용자당 하루 10~50편 이내로 유지한다.
 - **접근성**: 모든 터치 타깃 44px 이상, `div`에 `onClick` 금지(실제 `button`/`a` 사용), 아이콘 전용 버튼에 `aria-label`. 시안이 이 규칙으로 그려져 있다.
 - **`'use server'` 파일은 async 함수만 export한다.** `useActionState`의 초기 상태 객체 같은 일반 값은 별도의 평범한 모듈에 둔다 — 이 규칙을 어겨 온보딩 폼이 제출 시 500이 났고, 로그인이 막혀 있어 아무도 못 봤다.
-- **인증 상태의 서버 액션을 curl로 검증**할 때는 `Next-Action` 헤더 + `Origin` + `Content-Type: text/plain`으로 args JSON을 보낸다. `$ACTION_REF`/`$ACTION_KEY` 폼 필드 재생은 렌더별 암호화 참조라 무한 대기한다.
+- **인증 상태의 서버 액션을 curl로 검증**할 때는 `Next-Action: <actionId>` 헤더(useActionState로 바인딩된 액션도 실제 함수의 export id 하나로 고정이다 — bind로 미리 넣은 인자는 args 배열 맨 앞에 그대로 다시 넣는다) + `Origin`을 쓴다. `$ACTION_REF`/`$ACTION_KEY` 폼 필드 재생은 렌더별 암호화 참조라 무한 대기한다.
+  두 번째 인자가 진짜 `FormData`인 액션(이 레포의 `useActionState` 액션 전부)은 `Content-Type: text/plain` + JSON 배열이 아니라 **`multipart/form-data`**로 보내야 한다 — args 배열은 필드 `0`에, FormData 내용물은 배열 안 `"$K1"` 마커가 가리키는 필드 `_1_<원래필드명>`들에 담는다. Node 런타임은 이걸 스트리밍(busboy)으로 파싱하므로 **`_1_*` 필드가 `0` 필드보다 먼저** 와야 한다(반대 순서면 서버가 아직 도착 안 한 필드를 빈 FormData로 처리해버린다). `curl -F '_1_customLabel=값' -F '0=[{"status":"idle","error":null},"$K1"]'`처럼 순서를 지켜 보낸다.
 - **프로세스를 죽일 때는 포트로 PID를 특정**한다(`lsof -ti:PORT`). `pkill -f`로 이름 패턴 종료 금지 — 다른 프로젝트를 죽인다. 이 프로젝트의 dev 포트는 **3100**.
 - 커밋 메시지는 한국어 또는 영어 둘 다 좋지만 한 레포 안에서 통일한다.
 
