@@ -56,7 +56,7 @@ export function PaperCard({ item, paper, assessment, layout }: Props) {
       {assessment ? <TrackBadge track={assessment.track} /> : null}
       <span className="text-[11px] text-ink-muted">{venueLabel(paper)}</span>
       {item.isSerendipity ? (
-        <span className="text-[11px] font-medium text-accent">오늘의 곁가지</span>
+        <span className="text-[11px] font-medium text-accent">이런 논문은 어떠세요?</span>
       ) : null}
     </div>
   )

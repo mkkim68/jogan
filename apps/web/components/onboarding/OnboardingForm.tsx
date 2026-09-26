@@ -4,17 +4,9 @@ import { useActionState, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Stepper } from '@/components/ui/Stepper'
 import { Switch } from '@/components/ui/Switch'
-import { initialOnboardingState, submitOnboarding } from '@/lib/actions/interests'
-
-/** docs/DESIGN.md §6 `/onboarding` — 추천 주제 칩 6개. 실제 논문이 아닌 예시 라벨 */
-const RECOMMENDED_TOPICS = [
-  'LLM 에이전트',
-  '수면과 기억',
-  '코드 리뷰 자동화',
-  '단백질 구조 예측',
-  '인과추론',
-  '강화학습',
-] as const
+import { submitOnboarding } from '@/lib/actions/interests'
+import { initialOnboardingState } from '@/lib/actions/interests-state'
+import { RECOMMENDED_TOPICS } from '@/lib/topics'
 
 const DEFAULT_DEPARTURE_TIME = '08:10'
 const DEFAULT_PAPERS_PER_DAY = 4

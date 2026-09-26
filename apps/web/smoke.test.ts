@@ -90,6 +90,18 @@ describe.skipIf(!base)('인증된 라우트 스모크 (시드 사용자, 진짜 
     expect(await res.text()).toContain('저장함')
   })
 
+  it('/interests 는 200이고 시드 관심사를 보여준다', async () => {
+    const res = await fetch(`${base}/interests`, { headers: { cookie } })
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain('코드 리뷰 자동화')
+  })
+
+  it('/settings 는 200이고 설정 화면을 보여준다', async () => {
+    const res = await fetch(`${base}/settings`, { headers: { cookie } })
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain('집에서 나서는 시간')
+  })
+
   it('/audio 는 200이고 오디오 브리핑 화면을 보여준다', async () => {
     const res = await fetch(`${base}/audio`, { headers: { cookie } })
     expect(res.status).toBe(200)

@@ -325,7 +325,7 @@ export function buildSeed(userId: string, today: string): SeedData {
       {
         paperId: PAPER.fourday, interestId: null, position: 3, isSerendipity: true,
         oneLine: '주 4일제 시범 기업의 지식노동자 214명은 방해받지 않는 작업 블록이 19% 늘었다고 보고했다.',
-        whyItMatters: '관심사 바깥의 곁가지. 딥워크 시간을 다루는 드문 현장 데이터다.',
+        whyItMatters: '관심 주제인 수면과 기억 공고화와 맞닿아 있다. 딥워크 시간을 다루는 드문 현장 데이터다.',
         method: '6개 기업 214명 일기 데이터. 관찰 연구.',
         results: [
           { label: '표본', value: '214명' },

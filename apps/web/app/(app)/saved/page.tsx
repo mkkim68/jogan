@@ -17,8 +17,8 @@ function seoulDateString(date: Date): string {
  * 통째로 넘긴다 — 세그먼트를 바꿀 때 추가 서버 왕복이 없다.
  *
  * "이번 주 N편"과 오늘 저장한 편수는 `savedAt`을 실제로 세어 계산한다 — 지어낸 수치를 쓰지 않는다
- * (CLAUDE.md 절대 규칙 1). 배너의 "PC 웹으로 이어보기"는 이 앱이 이미 반응형 PWA라 사실이지만,
- * Zotero 연동은 없으므로 언급하지 않는다.
+ * (CLAUDE.md 절대 규칙 1). 배너 문구("{n}개를 저장했습니다. 웹에서 자세히 확인 가능합니다.")는
+ * 오너가 직접 확정한 문구를 그대로 쓴다 — 임의로 다듬지 않는다.
  */
 export default async function SavedPage() {
   const user = await requireUser()
@@ -51,7 +51,7 @@ export default async function SavedPage() {
       {savedToday > 0 ? (
         <div className="mt-4 rounded-xl border border-verified-line bg-verified-surface p-3 text-verified-deep">
           <p className="text-sm leading-relaxed">
-            회사 가서 이어보기 — PC 웹으로 오늘 저장한 {savedToday}편이 그대로 열립니다.
+            {savedToday}개를 저장했습니다. 웹에서 자세히 확인 가능합니다.
           </p>
         </div>
       ) : null}
