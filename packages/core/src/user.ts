@@ -22,3 +22,13 @@ export const OnboardingInput = UserSettings.omit({ userId: true }).extend({
   labels: z.array(z.string().min(1)).min(1).max(5),
 })
 export type OnboardingInput = z.infer<typeof OnboardingInput>
+
+/** `/interests` 관심사 추가 제출값. `OnboardingInput`의 라벨 제약(1~5개)과 동일하게 맞춘다 */
+export const AddInterestsInput = z.object({
+  labels: z.array(z.string().min(1)).min(1).max(5),
+})
+export type AddInterestsInput = z.infer<typeof AddInterestsInput>
+
+/** `/settings` 제출값. `userId`는 서버 액션이 세션에서 채운다 — 클라이언트에서 받지 않는다 */
+export const SettingsInput = UserSettings.omit({ userId: true })
+export type SettingsInput = z.infer<typeof SettingsInput>

@@ -1,7 +1,8 @@
 'use server'
 
-import { OnboardingInput } from '@jogan/core'
-import { completeOnboarding, listInterests } from '@jogan/db'
+import { AddInterestsInput, Interest, OnboardingInput, SettingsInput } from '@jogan/core'
+import { addInterests, completeOnboarding, deleteInterest, listInterests, updateSettings } from '@jogan/db'
+import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireUser } from '@/lib/session'
 
@@ -63,4 +64,141 @@ export async function submitOnboarding(
   })
 
   redirect('/')
+}
+
+/**
+ * `/interests` 관심사 추가 서버 액션.
+ *
+ * `userId`는 클라이언트에서 절대 받지 않는다 — 항상 `requireUser()`로 서버 세션에서 얻는다.
+ * `useActionState`로 쓰이므로 시그니처는 (prevState, formData) => 다음 state.
+ * 폼 필드 모양은 `submitOnboarding`과 맞춘다 — 칩으로 고른 `labels`(복수)와 직접 입력한
+ * `customLabel`(단수) 하나를 합쳐 검증한다.
+ *
+ * 중복 라벨은 `addInterests`의 `onConflictDoNothing()`이 조용히 무시하므로 여기서 따로 걸러내지 않는다.
+ *
+ * 재검증: 이 화면 자체(`/interests`)와 `/`(좌 레일의 관심사 목록·관심사별 카운트)만 관심사 데이터를
+ * 보여준다 — `TopBar`는 저장함 개수만, `(app)/layout.tsx`는 관심사 유무만 보고 리다이렉트 여부를
+ * 판단할 뿐 목록을 렌더하지 않으므로 `/saved`·`/paper/[id]` 등은 건드릴 데이터가 없다.
+ */
+
+export type AddInterestsFormState = { error: string | null }
+
+export const initialAddInterestsState: AddInterestsFormState = { error: null }
+
+export async function addInterestsAction(
+  _prevState: AddInterestsFormState,
+  formData: FormData,
+): Promise<AddInterestsFormState> {
+  const user = await requireUser()
+
+  const chipLabels = formData.getAll('labels').map(String)
+  const customLabel = String(formData.get('customLabel') ?? '').trim()
+  const labels = customLabel ? [...chipLabels, customLabel] : chipLabels
+
+  const parsed = AddInterestsInput.safeParse({ labels })
+
+  if (!parsed.success) {
+    return {
+      error:
+        labels.length === 0
+          ? '관심사를 하나 이상 입력해 주세요.'
+          : '관심사는 한 번에 최대 5개까지 추가할 수 있습니다.',
+    }
+  }
+
+  await addInterests(user.id, parsed.data.labels)
+
+  revalidatePath('/interests')
+  revalidatePath('/')
+
+  return { error: null }
+}
+
+/**
+ * `/interests` 관심사 삭제 서버 액션.
+ *
+ * `userId`는 클라이언트에서 절대 받지 않는다 — 항상 `requireUser()`로 서버 세션에서 얻는다.
+ * `interestId`만 클라이언트에서 받고, `Interest` 스키마의 `id` 필드(uuid)로 검증한다.
+ *
+ * 시그니처는 `(interestId, prevState, formData)`다 — 화면에서
+ * `removeInterestAction.bind(null, interestId)`로 앞의 `interestId`를 고정하면
+ * 남는 `(prevState, formData) => state` 모양이 `useActionState`에 그대로 들어간다
+ * (`toggleSave`처럼 폼 action에 직접 bind하는 방식과 달리, 이 액션은 에러 상태를 화면에
+ * 돌려줘야 해서 `useActionState`가 필요하다 — 그래서 bind 대상 인자를 맨 앞에 둔다).
+ *
+ * 마지막 남은 관심사 삭제 금지 규칙은 여기, 서버에서 강제한다 — 비활성화된 버튼은 UI 가드일 뿐
+ * 실제 방어선이 아니다(조작된 POST는 버튼 상태를 거치지 않는다). 삭제 전 개수를 세어 1개면
+ * `deleteInterest`를 호출하지 않고 바로 에러를 반환한다.
+ *
+ * 재검증: `addInterestsAction`과 동일한 이유로 `/interests`와 `/`만 대상이다.
+ */
+
+export type RemoveInterestFormState = { error: string | null }
+
+export const initialRemoveInterestState: RemoveInterestFormState = { error: null }
+
+export async function removeInterestAction(
+  interestId: string,
+  _prevState: RemoveInterestFormState,
+  _formData: FormData,
+): Promise<RemoveInterestFormState> {
+  const user = await requireUser()
+
+  const parsedId = Interest.shape.id.safeParse(interestId)
+  if (!parsedId.success) {
+    return { error: '잘못된 관심사입니다.' }
+  }
+
+  const existing = await listInterests(user.id)
+  if (existing.length <= 1) {
+    return { error: '관심사는 최소 1개 이상 있어야 합니다.' }
+  }
+
+  await deleteInterest(user.id, parsedId.data)
+
+  revalidatePath('/interests')
+  revalidatePath('/')
+
+  return { error: null }
+}
+
+/**
+ * `/settings` 저장 서버 액션.
+ *
+ * `userId`는 클라이언트에서 절대 받지 않는다 — 항상 `requireUser()`로 서버 세션에서 얻는다.
+ * `useActionState`로 쓰이므로 시그니처는 (prevState, formData) => 다음 state.
+ * 성공해도 리다이렉트하지 않는다 — `/settings`는 계속 그 화면에 머물며 저장 결과를 보여주는
+ * 화면이라 `submitOnboarding`과 달리 `redirect('/')`가 없다.
+ *
+ * 재검증: 출발 시각·하루 편수·프리프린트 포함 여부는 현재 `/settings` 화면에만 표시된다
+ * (`/`의 좌 레일·TopBar 어디에도 이 값들을 렌더하는 곳이 없다) — 그래서 `/settings` 하나만
+ * 재검증한다. 파이프라인이 이 값을 다음 새벽 배치부터 읽어가는 것이지 화면이 즉시 바뀌는
+ * 다른 경로가 없다.
+ */
+
+export type SettingsFormState = { error: string | null }
+
+export const initialSettingsState: SettingsFormState = { error: null }
+
+export async function saveSettingsAction(
+  _prevState: SettingsFormState,
+  formData: FormData,
+): Promise<SettingsFormState> {
+  const user = await requireUser()
+
+  const parsed = SettingsInput.safeParse({
+    departureTime: String(formData.get('departureTime') ?? ''),
+    papersPerDay: Number(formData.get('papersPerDay')),
+    includePreprints: formData.get('includePreprints') === 'true',
+  })
+
+  if (!parsed.success) {
+    return { error: '입력값을 확인해 주세요 — 출발 시각과 편수를 채워야 합니다.' }
+  }
+
+  await updateSettings({ ...parsed.data, userId: user.id })
+
+  revalidatePath('/settings')
+
+  return { error: null }
 }
