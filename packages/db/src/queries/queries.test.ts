@@ -42,7 +42,7 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
     expect(view?.items[0] && 'embedding' in view.items[0].paper).toBe(false)
     // 순서는 position대로
     expect(view?.items.map((i) => i.item.position)).toEqual([0, 1, 2, 3])
-    // 곁가지가 정확히 1편
+    // 유사 주제 논문이 정확히 1편
     expect(view?.items.filter((i) => i.item.isSerendipity)).toHaveLength(1)
   })
 

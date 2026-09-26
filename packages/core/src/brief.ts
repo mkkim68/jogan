@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const BriefItem = z.object({
   paperId: z.uuid(),
-  /** 곁가지(isSerendipity)는 관심사가 없다 */
+  /** 관심 주제와 유사한(주변) 분야 논문(isSerendipity)은 관심사가 없다 */
   interestId: z.uuid().nullable(),
   position: z.number().int().min(0),
   oneLine: z.string().min(1),
