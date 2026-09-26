@@ -185,3 +185,16 @@ export function InterestIcon(props: IconProps) {
     </Icon>
   )
 }
+
+/** 삭제: 휴지통. `/interests`의 관심사 삭제 버튼용. */
+export function TrashIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 7h14" />
+      <path d="M9.5 7V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2" />
+      <path d="M7.2 7l.9 12.1a1 1 0 0 0 1 .9h5.8a1 1 0 0 0 1-.9L16.8 7" />
+      <path d="M10.2 10.8v6.2" />
+      <path d="M13.8 10.8v6.2" />
+    </Icon>
+  )
+}

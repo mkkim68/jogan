@@ -1,9 +1,23 @@
 'use server'
 
+/**
+ * 이 파일의 `useActionState` 초기 상태 타입·값(`OnboardingFormState`/`initialOnboardingState` 등)은
+ * 여기 두지 않는다 — `lib/actions/interests-state.ts` 참고. `'use server'` 파일의 모든 export는
+ * 서버 레퍼런스로 취급되고 async 함수만 그게 될 수 있어서, 일반 객체를 여기서 export해 클라이언트가
+ * `useActionState`의 초기값으로 가져다 쓰면 실제 제출 때 500이 난다(타입만은 컴파일 타임에 지워지므로
+ * `import type`으로 가져오는 건 안전하다).
+ */
+
 import { AddInterestsInput, Interest, MAX_INTERESTS, OnboardingInput, SettingsInput } from '@jogan/core'
 import { addInterests, completeOnboarding, deleteInterest, listInterests, updateSettings } from '@jogan/db'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import type {
+  AddInterestsFormState,
+  OnboardingFormState,
+  RemoveInterestFormState,
+  SettingsFormState,
+} from '@/lib/actions/interests-state'
 import { requireUser } from '@/lib/session'
 
 /**
@@ -20,10 +34,6 @@ import { requireUser } from '@/lib/session'
  * (`onboarding/page.tsx`가 `interests.length > 0`이면 `/`로 보내는 것)와 같은 조건을
  * POST 경로에도 건다. bfcache 뒤로가기 후 재제출, 중복 탭, 재전송된 POST 모두 이 가드를 거친다.
  */
-
-export type OnboardingFormState = { error: string | null }
-
-export const initialOnboardingState: OnboardingFormState = { error: null }
 
 export async function submitOnboarding(
   _prevState: OnboardingFormState,
@@ -86,10 +96,6 @@ export async function submitOnboarding(
  * 판단할 뿐 목록을 렌더하지 않으므로 `/saved`·`/paper/[id]` 등은 건드릴 데이터가 없다.
  */
 
-export type AddInterestsFormState = { error: string | null }
-
-export const initialAddInterestsState: AddInterestsFormState = { error: null }
-
 export async function addInterestsAction(
   _prevState: AddInterestsFormState,
   formData: FormData,
@@ -149,10 +155,6 @@ export async function addInterestsAction(
  * 재검증: `addInterestsAction`과 동일한 이유로 `/interests`와 `/`만 대상이다.
  */
 
-export type RemoveInterestFormState = { error: string | null }
-
-export const initialRemoveInterestState: RemoveInterestFormState = { error: null }
-
 export async function removeInterestAction(
   interestId: string,
   _prevState: RemoveInterestFormState,
@@ -191,10 +193,6 @@ export async function removeInterestAction(
  * 재검증한다. 파이프라인이 이 값을 다음 새벽 배치부터 읽어가는 것이지 화면이 즉시 바뀌는
  * 다른 경로가 없다.
  */
-
-export type SettingsFormState = { error: string | null }
-
-export const initialSettingsState: SettingsFormState = { error: null }
 
 export async function saveSettingsAction(
   _prevState: SettingsFormState,
