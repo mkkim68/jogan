@@ -1,4 +1,5 @@
 import { config } from 'dotenv'
+import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 // env.ts를 import하면 DATABASE_URL이 없을 때 throw한다. 여기서는 로드만 하고
@@ -63,6 +64,102 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
   it('연속 기록이 0 이상이다', async () => {
     const { countStreak, todayInSeoul } = await import('../index')
     expect(await countStreak(userId, todayInSeoul())).toBeGreaterThanOrEqual(1)
+  })
+
+  it('addInterests가 새 라벨을 넣고, 중복 라벨은 조용히 무시한다', async () => {
+    const { addInterests, deleteInterest, listInterests } = await import('../index')
+    const label = `__test_label_${Date.now()}`
+
+    await addInterests(userId, [label])
+    const afterFirst = await listInterests(userId)
+    const created = afterFirst.find((i) => i.label === label)
+    expect(created).toBeDefined()
+
+    // 같은 라벨 재삽입 — unique 제약 위반 없이 조용히 무시되어야 한다
+    await addInterests(userId, [label])
+    const afterSecond = await listInterests(userId)
+    expect(afterSecond.filter((i) => i.label === label)).toHaveLength(1)
+
+    if (created) await deleteInterest(userId, created.id)
+    const afterCleanup = await listInterests(userId)
+    expect(afterCleanup.find((i) => i.label === label)).toBeUndefined()
+  })
+
+  it('addInterests가 빈 배열을 받으면 아무것도 하지 않는다', async () => {
+    const { addInterests, listInterests } = await import('../index')
+    const before = await listInterests(userId)
+    await addInterests(userId, [])
+    const after = await listInterests(userId)
+    expect(after).toHaveLength(before.length)
+  })
+
+  it('deleteInterest는 호출자 본인의 관심사를 지운다', async () => {
+    const { addInterests, deleteInterest, listInterests } = await import('../index')
+    const label = `__test_own_delete_${Date.now()}`
+
+    await addInterests(userId, [label])
+    const created = (await listInterests(userId)).find((i) => i.label === label)
+    expect(created).toBeDefined()
+    if (!created) return
+
+    await deleteInterest(userId, created.id)
+    expect((await listInterests(userId)).find((i) => i.label === label)).toBeUndefined()
+  })
+
+  it('deleteInterest는 다른 사용자의 id로는 행을 지우지 못한다', async () => {
+    const { db, users } = await import('../index')
+    const { addInterests, deleteInterest, listInterests } = await import('../index')
+    const label = `__test_cross_user_${Date.now()}`
+
+    // 남의 지갑을 뒤지지 못한다는 걸 보이기 위한 일회용 사용자
+    const [otherUser] = await db
+      .insert(users)
+      .values({ email: `__test_other_${Date.now()}@example.com`, name: null, image: null })
+      .returning()
+    expect(otherUser).toBeDefined()
+    if (!otherUser) return
+
+    await addInterests(userId, [label])
+    const created = (await listInterests(userId)).find((i) => i.label === label)
+    expect(created).toBeDefined()
+    if (!created) {
+      await db.delete(users).where(eq(users.id, otherUser.id))
+      return
+    }
+
+    // 남의 아이디로 지우려는 시도는 아무 효과가 없어야 한다
+    await deleteInterest(otherUser.id, created.id)
+    expect((await listInterests(userId)).find((i) => i.label === label)).toBeDefined()
+
+    // 정리: 진짜 소유자로 지우고, 일회용 사용자도 지운다
+    await deleteInterest(userId, created.id)
+    expect((await listInterests(userId)).find((i) => i.label === label)).toBeUndefined()
+    await db.delete(users).where(eq(users.id, otherUser.id))
+  })
+
+  it('updateSettings가 값을 바꾸고, getSettings가 HH:mm으로 읽어온다', async () => {
+    const { getSettings, updateSettings } = await import('../index')
+    const original = await getSettings(userId)
+    expect(original).not.toBeNull()
+    if (!original) return
+
+    const changed = {
+      userId,
+      departureTime: '07:45',
+      papersPerDay: (original.papersPerDay % 5) + 1,
+      includePreprints: !original.includePreprints,
+    }
+    await updateSettings(changed)
+
+    const afterChange = await getSettings(userId)
+    expect(afterChange?.departureTime).toBe('07:45')
+    expect(afterChange?.papersPerDay).toBe(changed.papersPerDay)
+    expect(afterChange?.includePreprints).toBe(changed.includePreprints)
+
+    // 시드 상태로 복원
+    await updateSettings(original)
+    const restored = await getSettings(userId)
+    expect(restored).toEqual(original)
   })
 })
 
