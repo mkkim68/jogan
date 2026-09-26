@@ -112,20 +112,30 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
     expect(after).toHaveLength(before.length)
   })
 
-  it('deleteInterest는 호출자 본인의 관심사를 지운다', async () => {
+  it('deleteInterest는 호출자 본인의 관심사를 지우고 true를 돌려준다', async () => {
     const { addInterests, deleteInterest, listInterests } = await import('../index')
     const label = `__test_own_delete_${Date.now()}`
+    let createdId: string | undefined
 
-    await addInterests(userId, [label])
-    const created = (await listInterests(userId)).find((i) => i.label === label)
-    expect(created).toBeDefined()
-    if (!created) return
+    try {
+      await addInterests(userId, [label])
+      const created = (await listInterests(userId)).find((i) => i.label === label)
+      createdId = created?.id
+      expect(created).toBeDefined()
+      if (!created) return
 
-    await deleteInterest(userId, created.id)
+      expect(await deleteInterest(userId, created.id)).toBe(true)
+    } finally {
+      // 단언이 도중에 실패해도 방금 만든 행은 반드시 지운다(이미 지워졌으면 두 번째
+      // deleteInterest는 false를 돌려줄 뿐 에러는 아니다)
+      const id = createdId
+      if (id) await safeCleanup(() => deleteInterest(userId, id))
+    }
+
     expect((await listInterests(userId)).find((i) => i.label === label)).toBeUndefined()
   })
 
-  it('deleteInterest는 다른 사용자의 id로는 행을 지우지 못한다', async () => {
+  it('deleteInterest는 다른 사용자의 id로는 행을 지우지 못하고 false를 돌려준다', async () => {
     const { db, users, addInterests, deleteInterest, listInterests } = await import('../index')
     const label = `__test_cross_user_${Date.now()}`
     let otherUserId: string | undefined
@@ -149,7 +159,7 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
 
       // 남의 아이디로 지우려는 시도는 아무 효과가 없어야 한다 — 바로 이 지점에서
       // 스코핑이 깨지면 아래 assert가 실패하는데, 그래도 finally에서 정리는 돈다
-      await deleteInterest(otherUser.id, created.id)
+      expect(await deleteInterest(otherUser.id, created.id)).toBe(false)
       expect((await listInterests(userId)).find((i) => i.label === label)).toBeDefined()
     } finally {
       // 실제 소유자로 지우고, 일회용 사용자도 지운다 — 단언 실패 여부와 무관하게 항상 실행
@@ -160,6 +170,35 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
     }
 
     expect((await listInterests(userId)).find((i) => i.label === label)).toBeUndefined()
+  })
+
+  it('deleteInterest는 관심사가 1개뿐이면 SQL 수준에서 막고 false를 돌려준다', async () => {
+    const { db, users, addInterests, deleteInterest, listInterests } = await import('../index')
+    const label = `__test_last_one_${Date.now()}`
+    let otherUserId: string | undefined
+
+    try {
+      // 관심사가 정확히 1개인 일회용 사용자를 만들어, 사전 카운트 검사(액션 계층)를
+      // 우회하고 `deleteInterest`를 직접 호출해도 원자적으로 막히는지 확인한다
+      const [otherUser] = await db
+        .insert(users)
+        .values({ email: `__test_last_one_${Date.now()}@example.com`, name: null, image: null })
+        .returning()
+      expect(otherUser).toBeDefined()
+      otherUserId = otherUser?.id
+      if (!otherUser) return
+
+      await addInterests(otherUser.id, [label])
+      const created = (await listInterests(otherUser.id)).find((i) => i.label === label)
+      expect(created).toBeDefined()
+      if (!created) return
+
+      expect(await deleteInterest(otherUser.id, created.id)).toBe(false)
+      expect((await listInterests(otherUser.id)).find((i) => i.label === label)).toBeDefined()
+    } finally {
+      const otherId = otherUserId
+      if (otherId) await safeCleanup(() => db.delete(users).where(eq(users.id, otherId)))
+    }
   })
 
   it('updateSettings가 값을 바꾸고, getSettings가 HH:mm으로 읽어온다', async () => {

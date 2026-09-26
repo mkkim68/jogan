@@ -53,9 +53,33 @@ export async function addInterests(userId: string, labels: string[]): Promise<vo
     .onConflictDoNothing()
 }
 
-/** 관심사 삭제 — `userId`도 WHERE에 들어가므로 다른 사용자의 행은 절대 지울 수 없다 */
-export async function deleteInterest(userId: string, interestId: string): Promise<void> {
-  await db.delete(interests).where(and(eq(interests.userId, userId), eq(interests.id, interestId)))
+/**
+ * 관심사 삭제 — `userId`도 WHERE에 들어가므로 다른 사용자의 행은 절대 지울 수 없다.
+ *
+ * "마지막 1개는 삭제 금지" 불변식을 DELETE 문 안의 서브쿼리 조건으로 함께 건다. 호출부
+ * (`removeInterestAction`)의 사전 카운트 검사는 빠른 피드백용으로 남겨두지만, 그 검사와
+ * 실제 삭제 사이에는 시간차가 있어 동시에 두 요청이 도착하면 둘 다 통과해 관심사가 0개가
+ * 될 수 있었다(TOCTOU) — 그 경쟁에서 지면 복구 경로(`/onboarding` 재진입)가 `user_settings`를
+ * 하드코딩 기본값으로 덮어써 버리므로 대가가 크다. 조건을 SQL 한 문장 안에 넣으면 그 경쟁이
+ * 사라진다.
+ *
+ * 반환값은 실제로 지웠는지를 알려준다 — `interestId`가 없거나 남의 것이거나(행 자체가
+ * WHERE에 안 걸림), 지금 가진 관심사가 1개뿐이라(서브쿼리 조건 불충족) 지우지 못했으면
+ * `false`다. 호출부가 "성공" / "이미 없음 또는 남의 것" / "마지막 1개"를 구분해 사용자에게
+ * 알릴 수 있도록, 성공과 실패를 항상 구분 가능한 형태로 돌려준다.
+ */
+export async function deleteInterest(userId: string, interestId: string): Promise<boolean> {
+  const rows = await db
+    .delete(interests)
+    .where(
+      and(
+        eq(interests.userId, userId),
+        eq(interests.id, interestId),
+        sql`(select count(*) from ${interests} i2 where i2.user_id = ${userId}) > 1`,
+      ),
+    )
+    .returning({ id: interests.id })
+  return rows.length > 0
 }
 
 /**
