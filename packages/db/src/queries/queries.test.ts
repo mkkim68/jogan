@@ -8,6 +8,18 @@ config({ path: ['.env', '../../.env'], quiet: true })
 
 const hasDb = Boolean(process.env.DATABASE_URL)
 
+/**
+ * 테스트가 만든 임시 상태를 지운다. 단언이 먼저 실패해 throw되더라도 `finally`에서 호출되므로
+ * 반드시 실행된다. 정리 자체가 실패해도 원래 실패 원인을 덮지 않도록 여기서 삼키고 로그만 남긴다.
+ */
+async function safeCleanup(fn: () => Promise<unknown>): Promise<void> {
+  try {
+    await fn()
+  } catch (err) {
+    console.error('테스트 정리 실패 — 수동으로 DB를 확인해야 할 수 있다:', err)
+  }
+}
+
 // DATABASE_URL이 없는 환경(CI 등)에서는 건너뛴다. 로컬에서는 `pnpm db:seed` 후 돌린다.
 describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => {
   let userId: string
@@ -69,18 +81,25 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
   it('addInterests가 새 라벨을 넣고, 중복 라벨은 조용히 무시한다', async () => {
     const { addInterests, deleteInterest, listInterests } = await import('../index')
     const label = `__test_label_${Date.now()}`
+    let createdId: string | undefined
 
-    await addInterests(userId, [label])
-    const afterFirst = await listInterests(userId)
-    const created = afterFirst.find((i) => i.label === label)
-    expect(created).toBeDefined()
+    try {
+      await addInterests(userId, [label])
+      const afterFirst = await listInterests(userId)
+      const created = afterFirst.find((i) => i.label === label)
+      createdId = created?.id
+      expect(created).toBeDefined()
 
-    // 같은 라벨 재삽입 — unique 제약 위반 없이 조용히 무시되어야 한다
-    await addInterests(userId, [label])
-    const afterSecond = await listInterests(userId)
-    expect(afterSecond.filter((i) => i.label === label)).toHaveLength(1)
+      // 같은 라벨 재삽입 — unique 제약 위반 없이 조용히 무시되어야 한다
+      await addInterests(userId, [label])
+      const afterSecond = await listInterests(userId)
+      expect(afterSecond.filter((i) => i.label === label)).toHaveLength(1)
+    } finally {
+      // 단언이 도중에 실패해도 방금 만든 행은 반드시 지운다
+      const id = createdId
+      if (id) await safeCleanup(() => deleteInterest(userId, id))
+    }
 
-    if (created) await deleteInterest(userId, created.id)
     const afterCleanup = await listInterests(userId)
     expect(afterCleanup.find((i) => i.label === label)).toBeUndefined()
   })
@@ -107,34 +126,40 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
   })
 
   it('deleteInterest는 다른 사용자의 id로는 행을 지우지 못한다', async () => {
-    const { db, users } = await import('../index')
-    const { addInterests, deleteInterest, listInterests } = await import('../index')
+    const { db, users, addInterests, deleteInterest, listInterests } = await import('../index')
     const label = `__test_cross_user_${Date.now()}`
+    let otherUserId: string | undefined
+    let createdId: string | undefined
 
-    // 남의 지갑을 뒤지지 못한다는 걸 보이기 위한 일회용 사용자
-    const [otherUser] = await db
-      .insert(users)
-      .values({ email: `__test_other_${Date.now()}@example.com`, name: null, image: null })
-      .returning()
-    expect(otherUser).toBeDefined()
-    if (!otherUser) return
+    try {
+      // 남의 지갑을 뒤지지 못한다는 걸 보이기 위한 일회용 사용자
+      const [otherUser] = await db
+        .insert(users)
+        .values({ email: `__test_other_${Date.now()}@example.com`, name: null, image: null })
+        .returning()
+      expect(otherUser).toBeDefined()
+      otherUserId = otherUser?.id
+      if (!otherUser) return
 
-    await addInterests(userId, [label])
-    const created = (await listInterests(userId)).find((i) => i.label === label)
-    expect(created).toBeDefined()
-    if (!created) {
-      await db.delete(users).where(eq(users.id, otherUser.id))
-      return
+      await addInterests(userId, [label])
+      const created = (await listInterests(userId)).find((i) => i.label === label)
+      createdId = created?.id
+      expect(created).toBeDefined()
+      if (!created) return
+
+      // 남의 아이디로 지우려는 시도는 아무 효과가 없어야 한다 — 바로 이 지점에서
+      // 스코핑이 깨지면 아래 assert가 실패하는데, 그래도 finally에서 정리는 돈다
+      await deleteInterest(otherUser.id, created.id)
+      expect((await listInterests(userId)).find((i) => i.label === label)).toBeDefined()
+    } finally {
+      // 실제 소유자로 지우고, 일회용 사용자도 지운다 — 단언 실패 여부와 무관하게 항상 실행
+      const interestId = createdId
+      if (interestId) await safeCleanup(() => deleteInterest(userId, interestId))
+      const otherId = otherUserId
+      if (otherId) await safeCleanup(() => db.delete(users).where(eq(users.id, otherId)))
     }
 
-    // 남의 아이디로 지우려는 시도는 아무 효과가 없어야 한다
-    await deleteInterest(otherUser.id, created.id)
-    expect((await listInterests(userId)).find((i) => i.label === label)).toBeDefined()
-
-    // 정리: 진짜 소유자로 지우고, 일회용 사용자도 지운다
-    await deleteInterest(userId, created.id)
     expect((await listInterests(userId)).find((i) => i.label === label)).toBeUndefined()
-    await db.delete(users).where(eq(users.id, otherUser.id))
   })
 
   it('updateSettings가 값을 바꾸고, getSettings가 HH:mm으로 읽어온다', async () => {
@@ -143,21 +168,24 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
     expect(original).not.toBeNull()
     if (!original) return
 
-    const changed = {
-      userId,
-      departureTime: '07:45',
-      papersPerDay: (original.papersPerDay % 5) + 1,
-      includePreprints: !original.includePreprints,
+    try {
+      const changed = {
+        userId,
+        departureTime: '07:45',
+        papersPerDay: (original.papersPerDay % 5) + 1,
+        includePreprints: !original.includePreprints,
+      }
+      await updateSettings(changed)
+
+      const afterChange = await getSettings(userId)
+      expect(afterChange?.departureTime).toBe('07:45')
+      expect(afterChange?.papersPerDay).toBe(changed.papersPerDay)
+      expect(afterChange?.includePreprints).toBe(changed.includePreprints)
+    } finally {
+      // 단언이 도중에 실패해도 시드 값으로 반드시 복원한다
+      await safeCleanup(() => updateSettings(original))
     }
-    await updateSettings(changed)
 
-    const afterChange = await getSettings(userId)
-    expect(afterChange?.departureTime).toBe('07:45')
-    expect(afterChange?.papersPerDay).toBe(changed.papersPerDay)
-    expect(afterChange?.includePreprints).toBe(changed.includePreprints)
-
-    // 시드 상태로 복원
-    await updateSettings(original)
     const restored = await getSettings(userId)
     expect(restored).toEqual(original)
   })
