@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Stepper } from '@/components/ui/Stepper'
 import { Switch } from '@/components/ui/Switch'
+import { Toast } from '@/components/ui/Toast'
 import { saveSettingsAction } from '@/lib/actions/interests'
 import { initialSettingsState } from '@/lib/actions/interests-state'
 
@@ -22,7 +23,10 @@ type Props = {
  * 저장 성공 표시: `useActionState`의 초기 상태(`initialSettingsState`)는 모듈 레벨 상수라
  * 액션이 새로 반환하는 `{ error: null }` 객체와 참조가 다르다. 그래서 `state`가
  * `initialSettingsState`와 다른 참조이면서 `error`가 없고 진행 중이 아니면 "이번 렌더는
- * 실제 제출 결과"라고 판단할 수 있다 — 별도의 `useEffect`/`ref` 없이 성공 배너를 띄운다.
+ * 실제 제출 결과"라고 판단할 수 있다 — 별도의 `useEffect`/`ref` 없이 `Toast`를 띄운다.
+ * 배너는 지속 노출되던 인라인 문구 대신 약 2초 뒤 스스로 사라지는 토스트로 바꿨다 —
+ * 다음 제출이 시작되면(`pending`) `saved`가 곧바로 거짓이 되어 `Toast`가 언마운트되므로,
+ * 저장을 반복해도 다음 성공마다 새 인스턴스로 타이머가 자연스럽게 리셋된다.
  */
 export function SettingsForm({
   departureTime,
@@ -83,15 +87,11 @@ export function SettingsForm({
         </p>
       ) : null}
 
-      {saved ? (
-        <p role="status" className="mt-6 text-sm font-medium text-verified">
-          저장했습니다 — 다음 새벽 배치부터 반영됩니다
-        </p>
-      ) : null}
-
       <Button type="submit" size="lg" disabled={pending} className="mt-8 w-full tablet:w-auto">
         {pending ? '저장하는 중…' : '저장'}
       </Button>
+
+      {saved ? <Toast message="저장했습니다" /> : null}
     </form>
   )
 }
