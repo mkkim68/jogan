@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { addInterestsAction } from '@/lib/actions/interests'
 import { initialAddInterestsState } from '@/lib/actions/interests-state'
@@ -18,11 +18,25 @@ type Props = {
  * 이미 가진 라벨은 칩을 눌러도 다시 선택할 수 없게 만드는 대신, 아예 버튼이 아닌
  * 정적 표시로 바꾼다 — 눌러도 아무 일도 없는 버튼보다 "이미 추가됨"이라고 말하는 편이
  * 사용자에게 더 정직하다.
+ *
+ * `addInterestsAction`은 판별 가능한 상태(`AddInterestsFormState`)를 돌려준다.
+ * `status === 'added'`일 때만 입력창·칩 선택을 비운다 — `duplicate`는 아무것도 쓰이지
+ * 않았으므로 사용자가 방금 고른 것을 그대로 보면서 메시지만 확인하는 편이 낫다.
+ * 이 리셋은 `useEffect`로 한다: `state`는 매 제출마다 새 객체 참조로 바뀌므로, 의존성
+ * 배열에 `state`를 두면 실제 제출 결과가 올 때만(로컬 `setSelected`/`setCustomLabel`
+ * 호출로 리렌더가 일어나도 `state` 참조 자체는 안 바뀌므로) 정확히 한 번 실행된다.
  */
 export function AddInterestForm({ ownedLabels }: Props) {
   const [state, formAction, pending] = useActionState(addInterestsAction, initialAddInterestsState)
   const [selected, setSelected] = useState<string[]>([])
   const [customLabel, setCustomLabel] = useState('')
+
+  useEffect(() => {
+    if (state.status === 'added') {
+      setSelected([])
+      setCustomLabel('')
+    }
+  }, [state])
 
   const owned = new Set(ownedLabels)
 
@@ -82,9 +96,21 @@ export function AddInterestForm({ ownedLabels }: Props) {
         <input key={label} type="hidden" name="labels" value={label} />
       ))}
 
-      {state.error ? (
+      {state.status === 'error' ? (
         <p role="alert" className="mt-4 text-sm text-caution">
           {state.error}
+        </p>
+      ) : null}
+
+      {state.status === 'duplicate' ? (
+        <p role="status" className="mt-4 text-sm text-ink-dim">
+          이미 등록된 관심사입니다.
+        </p>
+      ) : null}
+
+      {state.status === 'added' ? (
+        <p role="status" className="mt-4 text-sm font-medium text-verified">
+          {state.addedCount}개를 추가했습니다.
         </p>
       ) : null}
 

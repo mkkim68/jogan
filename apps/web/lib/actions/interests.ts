@@ -8,7 +8,14 @@
  * `import type`으로 가져오는 건 안전하다).
  */
 
-import { AddInterestsInput, Interest, MAX_INTERESTS, OnboardingInput, SettingsInput } from '@jogan/core'
+import {
+  AddInterestsInput,
+  Interest,
+  MAX_INTERESTS,
+  OnboardingInput,
+  planInterestAdd,
+  SettingsInput,
+} from '@jogan/core'
 import { addInterests, completeOnboarding, deleteInterest, listInterests, updateSettings } from '@jogan/db'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -19,6 +26,20 @@ import type {
   SettingsFormState,
 } from '@/lib/actions/interests-state'
 import { requireUser } from '@/lib/session'
+
+/**
+ * `includePreprints`가 `'true'`/`'false'` 중 하나로 명시적으로 왔는지 확인한다.
+ * `formData.get('includePreprints') === 'true'`처럼 비교만 하면 필드가 아예 없거나
+ * 잘린 POST에서도 조용히 `false`가 되어 프리프린트가 꺼진다 — CLAUDE.md 규칙 3이 신경 쓰는
+ * 설정이라 값이 없으면 검증 자체를 거부해야 한다. `null`을 돌려주면 뒤의 zod 스키마가
+ * `boolean`이 아니라며 파싱을 실패시킨다.
+ */
+function parseIncludePreprints(formData: FormData): boolean | null {
+  const raw = formData.get('includePreprints')
+  if (raw === 'true') return true
+  if (raw === 'false') return false
+  return null
+}
 
 /**
  * `/onboarding` 제출 서버 액션.
@@ -52,7 +73,7 @@ export async function submitOnboarding(
     labels,
     departureTime: String(formData.get('departureTime') ?? ''),
     papersPerDay: Number(formData.get('papersPerDay')),
-    includePreprints: formData.get('includePreprints') === 'true',
+    includePreprints: parseIncludePreprints(formData),
   })
 
   if (!parsed.success) {
@@ -86,10 +107,13 @@ export async function submitOnboarding(
  *
  * `AddInterestsInput`의 `.max(MAX_INTERESTS)`는 "이번 제출 한 건"의 상한일 뿐이다.
  * 반복 호출로 총 개수가 무한정 늘어나는 것을 막기 위해, 여기서 기존 개수 + 새 라벨 수를
- * 합산해 `MAX_INTERESTS`를 넘으면 쓰지 않는다. DB의 `interests_user_label` 유니크 인덱스 +
- * `onConflictDoNothing()` 때문에 이미 가진 라벨을 다시 제출해도 행이 늘지 않으므로,
- * 한도 계산은 "기존 라벨과 겹치지 않는 새 라벨 수"만 센다 — 안 그러면 이미 가진 라벨만
- * 다시 제출했을 뿐인데 한도 초과로 거부되는 이상한 경우가 생긴다.
+ * 합산해 `MAX_INTERESTS`를 넘으면 쓰지 않는다. 이 상한 산술과 "중복은 자리를 안 먹는다"는
+ * 순수 규칙은 `@jogan/core`의 `planInterestAdd`로 빼서 단위 테스트한다(`packages/core/src/interest.test.ts`).
+ *
+ * 반환은 판별 가능한 형태(`AddInterestsFormState`)다 — 이미 가진 라벨만 다시 제출하면
+ * `newLabels`가 비어 상한 검사는 통과하지만, DB에 쓸 것도 없어 화면이 한 글자도 안 바뀐다.
+ * 예전에는 이걸 `{ error: null }`(=성공)과 구분할 방법이 없어 사용자가 성공/무시/실패를
+ * 구분할 수 없었다 — `duplicate` 상태로 명시한다.
  *
  * 재검증: 이 화면 자체(`/interests`)와 `/`(좌 레일의 관심사 목록·관심사별 카운트)만 관심사 데이터를
  * 보여준다 — `TopBar`는 저장함 개수만, `(app)/layout.tsx`는 관심사 유무만 보고 리다이렉트 여부를
@@ -110,6 +134,7 @@ export async function addInterestsAction(
 
   if (!parsed.success) {
     return {
+      status: 'error',
       error:
         labels.length === 0
           ? '관심사를 하나 이상 입력해 주세요.'
@@ -118,22 +143,29 @@ export async function addInterestsAction(
   }
 
   const existing = await listInterests(user.id)
-  const existingLabels = new Set(existing.map((interest) => interest.label))
-  const newLabels = [...new Set(parsed.data.labels)].filter((label) => !existingLabels.has(label))
+  const plan = planInterestAdd(
+    existing.map((interest) => interest.label),
+    parsed.data.labels,
+    MAX_INTERESTS,
+  )
 
-  if (existing.length + newLabels.length > MAX_INTERESTS) {
-    const remaining = Math.max(MAX_INTERESTS - existing.length, 0)
+  if (!plan.ok) {
     return {
-      error: `관심사는 최대 ${MAX_INTERESTS}개까지입니다. 지금 ${existing.length}개이므로 ${remaining}개만 더 추가할 수 있습니다.`,
+      status: 'error',
+      error: `관심사는 최대 ${MAX_INTERESTS}개까지입니다. 지금 ${existing.length}개이므로 ${plan.remaining}개만 더 추가할 수 있습니다.`,
     }
   }
 
-  await addInterests(user.id, parsed.data.labels)
+  if (plan.newLabels.length === 0) {
+    return { status: 'duplicate', error: null }
+  }
+
+  await addInterests(user.id, plan.newLabels)
 
   revalidatePath('/interests')
   revalidatePath('/')
 
-  return { error: null }
+  return { status: 'added', error: null, addedCount: plan.newLabels.length }
 }
 
 /**
@@ -148,9 +180,18 @@ export async function addInterestsAction(
  * (`toggleSave`처럼 폼 action에 직접 bind하는 방식과 달리, 이 액션은 에러 상태를 화면에
  * 돌려줘야 해서 `useActionState`가 필요하다 — 그래서 bind 대상 인자를 맨 앞에 둔다).
  *
- * 마지막 남은 관심사 삭제 금지 규칙은 여기, 서버에서 강제한다 — 비활성화된 버튼은 UI 가드일 뿐
- * 실제 방어선이 아니다(조작된 POST는 버튼 상태를 거치지 않는다). 삭제 전 개수를 세어 1개면
- * `deleteInterest`를 호출하지 않고 바로 에러를 반환한다.
+ * 마지막 남은 관심사 삭제 금지 규칙의 진짜 방어선은 이제 `deleteInterest` 안의 SQL이다
+ * (삭제문 WHERE에 "지금 2개 이상인가"를 서브쿼리로 걸어 원자적으로 판정한다) — 사전 카운트
+ * 검사만으로는 TOCTOU 경쟁(거의 동시에 두 삭제 요청이 도착)에서 지면 관심사가 0개가 될 수
+ * 있었고, 복구 경로(`/onboarding` 재진입 → `completeOnboarding`)가 온보딩 폼의 하드코딩
+ * 기본값으로 `user_settings`를 조용히 덮어써 대가가 컸다. 여기 남은 사전 카운트 검사는
+ * 빠른 피드백용일 뿐이고, 비활성화된 버튼과 마찬가지로 UI 가드다 — 조작된 POST는 버튼
+ * 상태도, 이 사전 검사도 우회할 수 있지만 SQL의 서브쿼리 조건은 우회할 수 없다.
+ *
+ * `deleteInterest`가 `false`를 돌려주면(사전 검사를 통과했더라도) 실제로는 아무것도
+ * 지워지지 않은 것이다 — 그 사이 마지막 1개가 됐거나, 이미 지워졌거나, 애초에 내 것이
+ * 아니었던 경우다. 원인을 구분해 알려준다: 다시 세어봤을 때도 1개 이하면 "마지막 1개",
+ * 아니면 "이미 없거나 내 것이 아님"이다. 침묵하지 않는다.
  *
  * 재검증: `addInterestsAction`과 동일한 이유로 `/interests`와 `/`만 대상이다.
  */
@@ -172,7 +213,17 @@ export async function removeInterestAction(
     return { error: '관심사는 최소 1개 이상 있어야 합니다.' }
   }
 
-  await deleteInterest(user.id, parsedId.data)
+  const removed = await deleteInterest(user.id, parsedId.data)
+
+  if (!removed) {
+    const stillExisting = await listInterests(user.id)
+    return {
+      error:
+        stillExisting.length <= 1
+          ? '관심사는 최소 1개 이상 있어야 합니다.'
+          : '이미 삭제되었거나 존재하지 않는 관심사입니다.',
+    }
+  }
 
   revalidatePath('/interests')
   revalidatePath('/')
@@ -203,7 +254,7 @@ export async function saveSettingsAction(
   const parsed = SettingsInput.safeParse({
     departureTime: String(formData.get('departureTime') ?? ''),
     papersPerDay: Number(formData.get('papersPerDay')),
-    includePreprints: formData.get('includePreprints') === 'true',
+    includePreprints: parseIncludePreprints(formData),
   })
 
   if (!parsed.success) {

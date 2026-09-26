@@ -16,8 +16,17 @@
 export type OnboardingFormState = { error: string | null }
 export const initialOnboardingState: OnboardingFormState = { error: null }
 
-export type AddInterestsFormState = { error: string | null }
-export const initialAddInterestsState: AddInterestsFormState = { error: null }
+/**
+ * `addInterestsAction`의 판별 가능한 반환. 성공(`added`)·전부 중복(`duplicate`)·실패(`error`)를
+ * 구분해야 화면이 "아무 일도 없었던 것처럼" 조용해지지 않는다 — 특히 `duplicate`는 DB의
+ * `onConflictDoNothing()`이 삼켜서 예전에는 `{ error: null }`과 구분이 안 됐다.
+ */
+export type AddInterestsFormState =
+  | { status: 'idle'; error: null }
+  | { status: 'added'; error: null; addedCount: number }
+  | { status: 'duplicate'; error: null }
+  | { status: 'error'; error: string }
+export const initialAddInterestsState: AddInterestsFormState = { status: 'idle', error: null }
 
 export type RemoveInterestFormState = { error: string | null }
 export const initialRemoveInterestState: RemoveInterestFormState = { error: null }
