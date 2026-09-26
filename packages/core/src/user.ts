@@ -18,9 +18,18 @@ export const UserSettings = z.object({
 })
 export type UserSettings = z.infer<typeof UserSettings>
 
+/**
+ * 라벨 하나의 제약 — 앞뒤 공백은 trim(zod v4의 `.trim()`은 값을 변환하므로 `parsed.data`에는
+ * 이미 trim된 값이 담긴다), trim 후 길이 1~60. `[" "]`처럼 공백만 있는 라벨이 빈 행으로
+ * 저장되는 것과, `[" 인과추론 "]`처럼 앞뒤 공백만 다른 라벨이 dedupe·유니크 인덱스를 우회해
+ * 시각적 중복을 만드는 것을 막는다. 상한 60은 거대한 라벨이 그대로 임베딩 API로 넘어가는
+ * 것을 막는다(CLAUDE.md 비용 규칙).
+ */
+const InterestLabel = z.string().trim().min(1).max(60)
+
 /** `/onboarding` 제출값. userId는 서버 액션이 세션에서 채운다 — 클라이언트에서 받지 않는다 */
 export const OnboardingInput = UserSettings.omit({ userId: true }).extend({
-  labels: z.array(z.string().min(1)).min(1).max(MAX_INTERESTS),
+  labels: z.array(InterestLabel).min(1).max(MAX_INTERESTS),
 })
 export type OnboardingInput = z.infer<typeof OnboardingInput>
 
@@ -31,7 +40,7 @@ export type OnboardingInput = z.infer<typeof OnboardingInput>
  * 기존 개수와 합산해 강제한다.
  */
 export const AddInterestsInput = z.object({
-  labels: z.array(z.string().min(1)).min(1).max(MAX_INTERESTS),
+  labels: z.array(InterestLabel).min(1).max(MAX_INTERESTS),
 })
 export type AddInterestsInput = z.infer<typeof AddInterestsInput>
 
