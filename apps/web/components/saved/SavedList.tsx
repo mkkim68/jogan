@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { FollowUpNote } from '@/components/brief/FollowUpNote'
 import { CheckCircleIcon, ExternalLinkIcon } from '@/components/icons'
 import { TrackBadge } from '@/components/paper/TrackBadge'
-import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import { ToggleGroup } from '@/components/ui/ToggleGroup'
 import { markPaperRead } from '@/lib/actions/saved'
 
 export type SavedRow = {
@@ -22,10 +22,13 @@ export type SavedRow = {
 type Segment = 'unread' | 'read'
 
 /**
- * `/saved` 목록 (docs/DESIGN.md §6). 세그먼트 `읽을 것 N` / `읽음 M`은 `readAt` 유무로 나눈다.
+ * `/saved` 목록 (docs/DESIGN.md §6). `읽을 것`/`읽음`은 `readAt` 유무로 나눈다.
  *
- * 서버(page.tsx)가 `listSaved`를 한 번만 호출해 `rows`를 통째로 넘기고, 세그먼트 전환은
- * 여기서 클라이언트 상태로만 필터링한다 — 탭을 바꿔도 추가 네트워크 왕복이 없다.
+ * 서버(page.tsx)가 `listSaved`를 한 번만 호출해 `rows`를 통째로 넘기고, 토글 전환은
+ * 여기서 클라이언트 상태로만 필터링한다 — 상태를 바꿔도 추가 네트워크 왕복이 없다.
+ *
+ * 토글 라벨에는 숫자를 넣지 않는다(`읽을 것`/`읽음`) — 숫자를 넣으면 폰 폭에서 두 줄로
+ * 줄바꿈되던 문제가 있었다. 대신 왼쪽 텍스트에 전체·읽을 것 편수를 보여준다.
  */
 export function SavedList({ rows }: { rows: SavedRow[] }) {
   const [segment, setSegment] = useState<Segment>('unread')
@@ -36,16 +39,20 @@ export function SavedList({ rows }: { rows: SavedRow[] }) {
 
   return (
     <div>
-      <SegmentedControl
-        aria-label="저장 상태"
-        value={segment}
-        onChange={(value) => setSegment(value as Segment)}
-        options={[
-          { value: 'unread', label: `읽을 것 ${unread.length}` },
-          { value: 'read', label: `읽음 ${read.length}` },
-        ]}
-        className="mt-4"
-      />
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <p className="min-w-0 truncate text-sm text-ink-muted">
+          저장함 {rows.length}편 · 읽을 것 {unread.length}
+        </p>
+        <ToggleGroup
+          aria-label="저장 상태"
+          value={segment}
+          onChange={setSegment}
+          options={[
+            { value: 'unread', label: '읽을 것' },
+            { value: 'read', label: '읽음' },
+          ]}
+        />
+      </div>
       <p className="mt-3 text-[11px] text-ink-muted">신뢰도 배지와 근거는 AI 보조 의견입니다</p>
 
       {shown.length === 0 ? (

@@ -43,7 +43,7 @@ export default async function BriefingPage() {
         <p className="font-display text-xl font-bold text-ink">내일 아침 첫 브리핑이 도착합니다</p>
         <p className="text-sm text-ink-muted">관심사를 등록해 두면 새벽 배치가 그 안에서 논문을 고릅니다.</p>
         <Link
-          href="/onboarding"
+          href="/interests"
           className="mt-2 inline-flex h-11 items-center justify-center rounded-[10px] bg-ink px-5 text-sm font-medium text-paper hover:bg-ink-body"
         >
           관심사 보기
@@ -116,7 +116,7 @@ export default async function BriefingPage() {
               ))}
             </ul>
             <Link
-              href="/onboarding"
+              href="/interests"
               className="mt-3 flex h-11 items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-line-strong text-sm font-medium text-ink-dim hover:bg-paper-raised"
             >
               <PlusIcon className="h-4 w-4" />
@@ -155,7 +155,6 @@ export default async function BriefingPage() {
               <p className="mt-1 text-sm text-ink-muted">
                 {todayPrefix}
                 {mainItems.length}편을 골랐습니다
-                {serendipity ? ' · 곁가지 1편 포함' : ''}
               </p>
               <p className="mt-1 text-[11px] text-ink-muted">신뢰도 배지와 근거는 AI 보조 의견입니다</p>
             </div>
@@ -218,7 +217,7 @@ export default async function BriefingPage() {
 
           {serendipity ? (
             <div>
-              <h2 className={SIDE_LABEL}>오늘의 곁가지</h2>
+              <h2 className={SIDE_LABEL}>이런 논문은 어떠세요?</h2>
               <div
                 className={`mt-3 rounded-xl bg-surface p-3 ${
                   serendipity.assessment?.track === 'notable' ? 'border-2 border-caution-line' : 'border border-line'

@@ -14,7 +14,7 @@ describe('buildSeed', () => {
     UserSettings.parse(seed.settings)
   })
 
-  it('관심사 3개, 오늘 브리핑 4편, 그중 곁가지 1편', () => {
+  it('관심사 3개, 오늘 브리핑 4편, 그중 유사 주제 1편', () => {
     expect(seed.interests).toHaveLength(3)
     expect(seed.brief.items).toHaveLength(4)
     expect(seed.brief.items.filter((i) => i.isSerendipity)).toHaveLength(1)
