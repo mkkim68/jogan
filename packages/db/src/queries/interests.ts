@@ -1,5 +1,6 @@
 import type { Interest, UserSettings } from '@jogan/core'
-import { and, eq, gte, sql } from 'drizzle-orm'
+import { EMBEDDING_DIM } from '@jogan/core'
+import { and, eq, gte, isNull, sql } from 'drizzle-orm'
 import { db } from '../client'
 import { briefItems, briefs, interests, userSettings } from '../schema'
 import { rowToInterest, rowToUserSettings } from './mappers'
@@ -72,4 +73,20 @@ export async function countByInterest(
     .where(and(eq(briefs.userId, userId), gte(briefs.date, since)))
     .groupBy(interests.id, interests.label)
   return rows
+}
+
+export async function listUnembeddedInterests(): Promise<
+  { id: string; label: string; userId: string }[]
+> {
+  return db
+    .select({ id: interests.id, label: interests.label, userId: interests.userId })
+    .from(interests)
+    .where(isNull(interests.embedding))
+}
+
+export async function setInterestEmbedding(id: string, embedding: number[]): Promise<void> {
+  if (embedding.length !== EMBEDDING_DIM) {
+    throw new Error(`임베딩 차원이 ${EMBEDDING_DIM}이 아니다: ${embedding.length}`)
+  }
+  await db.update(interests).set({ embedding }).where(eq(interests.id, id))
 }

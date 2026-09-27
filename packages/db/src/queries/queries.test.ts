@@ -64,6 +64,85 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
     const { countStreak, todayInSeoul } = await import('../index')
     expect(await countStreak(userId, todayInSeoul())).toBeGreaterThanOrEqual(1)
   })
+
+  it('워터마크를 쓰고 읽는다', async () => {
+    const { getPipelineState, setPipelineState } = await import('../index')
+    const key = '__test_watermark'
+    try {
+      expect(await getPipelineState(key)).toBeNull()
+      await setPipelineState(key, '2026-09-27T00:00:00.000Z')
+      expect(await getPipelineState(key)).toBe('2026-09-27T00:00:00.000Z')
+      await setPipelineState(key, '2026-09-28T00:00:00.000Z')
+      expect(await getPipelineState(key)).toBe('2026-09-28T00:00:00.000Z')
+    } finally {
+      const { db, pipelineState } = await import('../index')
+      const { eq } = await import('drizzle-orm')
+      await db.delete(pipelineState).where(eq(pipelineState.key, key))
+    }
+  })
+
+  it('후보는 더 높은 relevance로만 갱신된다', async () => {
+    const { db, papers, upsertCandidates, paperCandidates } = await import('../index')
+    const { and, eq } = await import('drizzle-orm')
+    const paper = await db.query.papers.findFirst()
+    expect(paper).toBeDefined()
+    if (!paper) return
+    try {
+      await upsertCandidates([
+        { userId, paperId: paper.id, interestId: null, relevance: 0.6, collectedFor: '2026-09-27' },
+      ])
+      await upsertCandidates([
+        { userId, paperId: paper.id, interestId: null, relevance: 0.4, collectedFor: '2026-09-28' },
+      ])
+      const low = await db.query.paperCandidates.findFirst({
+        where: and(eq(paperCandidates.userId, userId), eq(paperCandidates.paperId, paper.id)),
+      })
+      expect(low?.relevance).toBeCloseTo(0.6, 5)
+      expect(low?.collectedFor).toBe('2026-09-27')
+
+      await upsertCandidates([
+        { userId, paperId: paper.id, interestId: null, relevance: 0.9, collectedFor: '2026-09-29' },
+      ])
+      const high = await db.query.paperCandidates.findFirst({
+        where: and(eq(paperCandidates.userId, userId), eq(paperCandidates.paperId, paper.id)),
+      })
+      expect(high?.relevance).toBeCloseTo(0.9, 5)
+      expect(high?.collectedFor).toBe('2026-09-29')
+    } finally {
+      await db.delete(paperCandidates).where(eq(paperCandidates.userId, userId))
+    }
+  })
+
+  it('초록이 바뀌면 upsert가 임베딩을 무효화한다', async () => {
+    const { db, papers, upsertArxivPapers, setPaperEmbedding } = await import('../index')
+    const { EMBEDDING_DIM } = await import('@jogan/core')
+    const { eq } = await import('drizzle-orm')
+    const arxivId = '__test.00001'
+    const base = {
+      doi: null, arxivId, title: '제목', authors: [{ name: '저자' }],
+      abstract: '첫 초록', publishedAt: new Date('2026-09-20T00:00:00Z'),
+      source: 'arxiv' as const, venue: { name: 'arXiv', kind: 'preprint' as const },
+      pdfUrl: null, codeUrl: null, openAccess: true,
+    }
+    try {
+      await upsertArxivPapers([base])
+      const row = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      expect(row).toBeDefined()
+      if (!row) return
+      await setPaperEmbedding(row.id, Array.from({ length: EMBEDDING_DIM }, () => 0.1))
+      expect((await db.query.papers.findFirst({ where: eq(papers.id, row.id) }))?.embedding).not.toBeNull()
+
+      // 초록이 같으면 임베딩이 유지된다
+      await upsertArxivPapers([{ ...base, title: '제목 v2' }])
+      expect((await db.query.papers.findFirst({ where: eq(papers.id, row.id) }))?.embedding).not.toBeNull()
+
+      // 초록이 바뀌면 임베딩이 null이 된다
+      await upsertArxivPapers([{ ...base, abstract: '바뀐 초록' }])
+      expect((await db.query.papers.findFirst({ where: eq(papers.id, row.id) }))?.embedding).toBeNull()
+    } finally {
+      await db.delete(papers).where(eq(papers.arxivId, arxivId))
+    }
+  })
 })
 
 afterAll(async () => {
