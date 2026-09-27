@@ -9,6 +9,6 @@ export const PaperCandidate = z.object({
   /** 코사인 유사도 0~1 */
   relevance: z.number().min(0).max(1),
   /** KST 기준 수집일 */
-  collectedFor: z.string().date(),
+  collectedFor: z.iso.date(),
 })
 export type PaperCandidate = z.infer<typeof PaperCandidate>
