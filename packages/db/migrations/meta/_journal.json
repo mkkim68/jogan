@@ -15,6 +15,20 @@
       "when": 1790145967937,
       "tag": "0001_big_monster_badoon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790495980082,
+      "tag": "0002_absurd_gideon",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790576910729,
+      "tag": "0003_high_kat_farrell",
+      "breakpoints": true
     }
   ]
 }

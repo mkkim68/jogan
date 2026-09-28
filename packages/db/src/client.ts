@@ -16,4 +16,6 @@ const sql =
 if (process.env.NODE_ENV !== 'production') globalThis.__joganSql = sql
 
 export const db = drizzle(sql, { schema })
+/** advisory lock처럼 커넥션 하나를 붙잡아야 하는 곳에서만 쓴다 (queries/locks.ts) */
+export const pgSql = sql
 export type Db = typeof db

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom"
+      xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">
+  <opensearch:totalResults>107</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2609.30250v1</id>
+    <title>Agentic Detection of Online
+  Conspiracies</title>
+    <updated>2026-09-24T17:58:43Z</updated>
+    <published>2026-09-24T17:58:43Z</published>
+    <summary>Conspiratorial discourse on social media is not always expressed
+  through explicit claims.</summary>
+    <link href="https://arxiv.org/abs/2609.30250v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2609.30250v1" rel="related" type="application/pdf" title="pdf"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <arxiv:primary_category term="cs.CL"/>
+    <author><name>Lior Biton</name></author>
+    <author><name>Oren Tsur</name></author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2609.30243v2</id>
+    <title>A Single Author Paper</title>
+    <updated>2026-09-24T17:57:07Z</updated>
+    <published>2026-09-24T17:57:07Z</published>
+    <summary>Short abstract.</summary>
+    <link href="https://arxiv.org/abs/2609.30243v2" rel="alternate" type="text/html"/>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <arxiv:primary_category term="cs.SE"/>
+    <author><name>Solo Researcher</name></author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2609.30001v1</id>
+    <title>Published Elsewhere</title>
+    <updated>2026-09-23T10:00:00Z</updated>
+    <published>2026-09-23T10:00:00Z</published>
+    <summary>Has a DOI.</summary>
+    <link href="https://arxiv.org/abs/2609.30001v1" rel="alternate" type="text/html"/>
+    <category term="q-bio.NC" scheme="http://arxiv.org/schemas/atom"/>
+    <arxiv:primary_category term="q-bio.NC"/>
+    <arxiv:doi>10.1000/example.42</arxiv:doi>
+    <author><name>Jane Doe</name><arxiv:affiliation>KAIST</arxiv:affiliation></author>
+  </entry>
+</feed>
