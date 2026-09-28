@@ -22,8 +22,19 @@ export const ARXIV_CATEGORIES = [
 
 /** 워터마크가 없는 첫 실행에서 거슬러 받을 기간 */
 export const COLLECT_BACKFILL_DAYS = 7
-/** 관련성 매칭 대상이 되는 논문의 최근성 */
-export const COLLECT_WINDOW_DAYS = 7
+/**
+ * 관련성 매칭 대상이 되는 논문의 최근성.
+ *
+ * **COLLECT_BACKFILL_DAYS와 같아서는 안 된다 — 반드시 더 넓게 둔다.** ④ 매칭은
+ * "아직 후보가 아닌 논문"이 아니라 `published_at >= now - 이 값`으로 대상을 고르기
+ * 때문에, 두 값이 같으면 (a) 첫 실행이 백필 구간의 가장 오래된 쪽을 실행 시간만큼
+ * 잘라먹고, (b) 임베딩이 며칠 막혀 있는 동안(Voyage 장애·키 만료) 수집된 논문이
+ * 임베딩되는 시점에는 이미 창 밖이라 누구의 후보도 되지 못한다.
+ *
+ * 제대로 된 해법은 날짜가 아니라 "임베딩됐고 아직 paper_candidates에 없음"으로
+ * 거르는 것이지만, 그건 briefer의 소비 마커와 함께 설계해야 한다(스펙 ④ 주의 참고).
+ */
+export const COLLECT_WINDOW_DAYS = 14
 /** 한 실행에서 저장할 논문 수 상한. 넘으면 로그를 남기고 멈춘다 */
 export const COLLECT_MAX_PER_RUN = 3000
 /** arXiv 한 페이지 크기 */

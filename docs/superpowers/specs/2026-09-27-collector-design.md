@@ -62,6 +62,8 @@ pnpm pipeline:collect
 PK `(user_id, paper_id)` — 한 논문이 여러 관심사에 걸리면 **행은 하나만** 남긴다. upsert 시 새 `relevance`가 기존보다 높을 때만 `relevance`·`interest_id`·`collected_for`를 **함께** 갱신한다(어느 관심사로 걸렸는지가 점수와 어긋나면 안 된다). 인덱스 `(user_id, collected_for)`.
 
 > 다음 단계(briefer)에 주의: `collected_for`는 "그 논문이 처음 후보가 된 날"이지 "오늘 다시 걸린 날"이 아니다. relevance는 고정된 두 임베딩의 코사인이라 재실행해도 같은 값이 나오고, 갱신 조건이 strict `>`라서 한 번 쓰인 행의 `collected_for`는 사실상 고정된다. 따라서 오늘 브리핑 후보를 `collected_for = 오늘`로 조회하면 어제 후보가 됐지만 아직 쓰이지 않은 논문을 놓친다. 후보 풀은 날짜가 아니라 **소비 여부**로 걸러야 한다.
+>
+> 같은 소비 마커가 ④의 대상 선정도 고쳐야 한다. 지금 ④는 `published_at >= now - COLLECT_WINDOW_DAYS`로 고르는데, 임베딩이 창보다 오래 막히면(Voyage 장애) 밀린 논문들이 임베딩될 즈음 이미 창 밖이라 영영 후보가 되지 못한다. 당장은 `COLLECT_WINDOW_DAYS`(14일)를 `COLLECT_BACKFILL_DAYS`(7일)보다 넓게 둬 시간을 벌어두었을 뿐이다. 올바른 조건은 **"임베딩이 있고 아직 `paper_candidates`에 없음"** 이며, briefer의 소비 마커를 설계할 때 ④의 조건도 함께 바꾼다.
 
 ### `pipeline_state`
 
@@ -129,7 +131,7 @@ collector가 쓰는 키: `collector:arxiv:last_submitted_at` (ISO 8601).
 
 각 사용자에 대해, 임베딩이 있는 각 관심사마다:
 
-- 대상: `published_at`이 최근 `COLLECT_WINDOW_DAYS`(7일) 이내이고 `embedding IS NOT NULL`인 논문
+- 대상: `published_at`이 최근 `COLLECT_WINDOW_DAYS`(14일) 이내이고 `embedding IS NOT NULL`인 논문 — 백필 창(7일)보다 반드시 넓어야 한다
 - `cosineDistance`(drizzle 0.45 내장)로 정렬, 유사도 = `1 - distance`
 - `relevance >= RELEVANCE_THRESHOLD` 이고 관심사당 상위 `CANDIDATES_PER_INTEREST`편
 - `paper_candidates`에 upsert. 이미 있으면 **더 높은 relevance로만** 갱신
@@ -143,7 +145,7 @@ collector가 쓰는 키: `collector:arxiv:last_submitted_at` (ISO 8601).
 ```
 ARXIV_CATEGORIES        7개 카테고리
 COLLECT_BACKFILL_DAYS   7   첫 실행 적재 기간
-COLLECT_WINDOW_DAYS     7   매칭 대상 논문의 최근성
+COLLECT_WINDOW_DAYS     14  매칭 대상 논문의 최근성 (백필 창보다 넓게)
 COLLECT_MAX_PER_RUN     3000
 RELEVANCE_THRESHOLD     0.45  ← 실제 결과를 보고 조정
 CANDIDATES_PER_INTEREST 50
