@@ -61,6 +61,8 @@ pnpm pipeline:collect
 
 PK `(user_id, paper_id)` — 한 논문이 여러 관심사에 걸리면 **행은 하나만** 남긴다. upsert 시 새 `relevance`가 기존보다 높을 때만 `relevance`·`interest_id`·`collected_for`를 **함께** 갱신한다(어느 관심사로 걸렸는지가 점수와 어긋나면 안 된다). 인덱스 `(user_id, collected_for)`.
 
+> 다음 단계(briefer)에 주의: `collected_for`는 "그 논문이 처음 후보가 된 날"이지 "오늘 다시 걸린 날"이 아니다. relevance는 고정된 두 임베딩의 코사인이라 재실행해도 같은 값이 나오고, 갱신 조건이 strict `>`라서 한 번 쓰인 행의 `collected_for`는 사실상 고정된다. 따라서 오늘 브리핑 후보를 `collected_for = 오늘`로 조회하면 어제 후보가 됐지만 아직 쓰이지 않은 논문을 놓친다. 후보 풀은 날짜가 아니라 **소비 여부**로 걸러야 한다.
+
 ### `pipeline_state`
 
 | 컬럼 | 타입 |
