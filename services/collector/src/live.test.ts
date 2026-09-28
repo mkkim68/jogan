@@ -1,6 +1,6 @@
 import { config } from 'dotenv'
 import { describe, expect, it } from 'vitest'
-import { ARXIV_CATEGORIES, COLLECT_BACKFILL_DAYS } from '@jogan/core'
+import { ARXIV_CATEGORIES, ARXIV_MIN_INTERVAL_MS, COLLECT_BACKFILL_DAYS } from '@jogan/core'
 import { buildArxivQueryUrl, entryToPaper, fetchArxivPage, parseArxivFeed } from './arxiv'
 import { embedTexts } from './embed'
 import { createHttpClient } from './http'
@@ -13,7 +13,7 @@ const live = process.env.COLLECTOR_LIVE_TEST === '1'
 
 describe.skipIf(!live)('실호출', () => {
   it('arXiv에서 실제 엔트리를 가져와 Paper로 매핑한다', async () => {
-    const client = createHttpClient({ minIntervalMs: 3000, maxRetries: 2, timeoutMs: 30_000 }, {})
+    const client = createHttpClient({ minIntervalMs: ARXIV_MIN_INTERVAL_MS, maxRetries: 2, timeoutMs: 30_000 }, {})
     const to = new Date()
     // 브리핑 원안은 2일치만 봤지만, arXiv는 주말·공휴일에 새 논문을 내지 않아 실행 시점에
     // 따라 2일 창이 통째로 비는 경우가 실제로 있다(검증됨: 확인 당시 최신 제출이 금요일
