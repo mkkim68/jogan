@@ -73,7 +73,9 @@ export type CollectDeps = {
  * 매핑/파싱 단계에서만 본 값으로는 절대 전진시키지 않는다 — 저장에 실패한 논문 뒤로
  * 워터마크가 넘어가버리면 그 논문은 다음 실행에서도 영원히 조회 구간 밖으로 밀려난다.
  */
-export async function collect(deps: CollectDeps = {}): Promise<{ stored: number; newest: Date | null }> {
+export async function collect(
+  deps: CollectDeps = {},
+): Promise<{ stored: number; newest: Date | null; hitMaxPerRun: boolean }> {
   const arxiv =
     deps.client ??
     createHttpClient({ minIntervalMs: ARXIV_MIN_INTERVAL_MS, maxRetries: 3, timeoutMs: 30_000 }, {})
@@ -221,7 +223,7 @@ export async function collect(deps: CollectDeps = {}): Promise<{ stored: number;
     )
   }
   log('fetch', `저장 ${stored}편, 건너뜀 ${skipped}편`)
-  return { stored, newest }
+  return { stored, newest, hitMaxPerRun: stopReason === 'max-per-run' }
 }
 
 export type EmbedDeps = {
@@ -476,13 +478,23 @@ async function main() {
     return
   }
 
-  const { stored, newest } = await collect()
+  const { stored, newest, hitMaxPerRun } = await collect()
+  let advanced = false
   if (newest) {
     const iso = newest.toISOString()
     // 겹침 구간만 훑은 실행은 저장된 워터마크보다 오래된 값을 들고 올 수 있다 —
     // 그대로 덮어쓰면 워터마크가 뒤로 밀려 같은 구간을 매번 다시 받는다.
-    const advanced = await (await loadDb()).advancePipelineState(WATERMARK_KEY, iso)
+    advanced = await (await loadDb()).advancePipelineState(WATERMARK_KEY, iso)
     log('fetch', advanced ? `워터마크 → ${iso}` : `워터마크 유지 (이번 실행의 최댓값 ${iso}은 기존보다 이르다)`)
+  }
+  // 오름차순 조회는 매 실행이 겹침 구간(OVERLAP_MS)부터 소비한다. 겹침 구간 하나가
+  // COLLECT_MAX_PER_RUN을 넘으면 워터마크가 영영 전진하지 못하고 같은 구간을 매일
+  // 다시 받는 교착이 된다 — 조용히 반복되면 안 되므로 여기서 실패로 끊는다.
+  if (hitMaxPerRun && !advanced) {
+    throw new Error(
+      `수집 교착: 한 실행 상한(${COLLECT_MAX_PER_RUN}편)에 도달했는데 워터마크가 전진하지 못했다. ` +
+        `겹침 구간(OVERLAP_MS)만으로 상한을 채우고 있다는 뜻이다 — 상한을 올리거나 겹침을 줄여야 한다.`,
+    )
   }
   const embedded = await embed()
   const candidates = await match()
