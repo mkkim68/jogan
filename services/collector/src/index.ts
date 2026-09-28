@@ -18,8 +18,17 @@ import { createHttpClient, type HttpClient } from './http'
 import { selectBestPerPaper, type InterestMatches } from './match'
 
 const WATERMARK_KEY = 'collector:arxiv:last_submitted_at'
-/** 워터마크 경계에서 새는 것을 막는 겹침. upsert라 중복 비용이 없다 */
-const OVERLAP_MS = 60 * 60 * 1000
+/**
+ * 워터마크에서 거슬러 다시 조회하는 겹침. upsert라 중복 비용이 없다.
+ *
+ * 3일인 이유: arXiv의 색인·공개 지연이 1시간짜리 겹침보다 훨씬 크다. 2026-09-28 05:04 UTC
+ * 실행에서 창에 잡힌 가장 늦은 제출 시각이 2026-09-25 17:59:52 UTC였다 — **실측 2.5일**이다.
+ * 모더레이션에 걸린 논문은 며칠 뒤에 공개되면서도 원래의 submittedDate를 달고 나오므로,
+ * 겹침이 그 지연보다 짧으면 이미 워터마크 뒤로 밀려 영원히 수집되지 않는다.
+ * 대가는 매일 몇 페이지를 더 받는 것뿐이고(초록이 그대로면 임베딩도 무효화되지 않는다),
+ * 놓치면 논문이 영구 유실이라 비대칭이 크다.
+ */
+const OVERLAP_MS = 3 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 
 const log = (stage: string, msg: string) => console.log(`[collector:${stage}] ${msg}`)
