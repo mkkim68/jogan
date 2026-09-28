@@ -38,6 +38,17 @@ describe('buildSeed', () => {
     }
   })
 
+  it('시드 arXiv id는 arXiv가 발급할 수 없는 네임스페이스(월 99)를 쓴다', () => {
+    // 실재하는 id를 점유하면 수집기의 upsert가 허구 시드를 진짜 논문으로 덮어쓰고,
+    // 가짜 요약·가짜 신뢰도 근거만 paper_id로 남는다 (절대 규칙 1·2).
+    for (const p of seed.papers) {
+      if (p.arxivId === null) continue
+      const m = p.arxivId.match(/^(\d{2})(\d{2})\./)
+      expect(m).not.toBeNull()
+      expect(Number(m?.[2])).toBeGreaterThan(12)
+    }
+  })
+
   it('저장 항목에 후속 소식이 하나 있다', () => {
     expect(seed.saved.some((s) => s.followUp?.kind === 'accepted')).toBe(true)
   })

@@ -67,7 +67,10 @@ export function buildSeed(userId: string, today: string): SeedData {
     {
       id: PAPER.episodic,
       doi: '10.5555/jogan.seed.0001',
-      arxivId: '2609.00001',
+      // arXiv가 절대 발급할 수 없는 id(월 99)를 쓴다 — 실재하는 id를 점유하면
+      // 수집기가 그 논문을 가져왔을 때 upsert가 이 허구 행의 제목·초록을 진짜 논문으로
+      // 덮어쓰고, 가짜 요약·가짜 신뢰도 근거는 paper_id로 그대로 붙어 있는다 (절대 규칙 1·2).
+      arxivId: '9999.00001',
       title: 'Episodic Retrieval for Long-Horizon Conversational Agents',
       authors: [
         { name: 'Mina Seo', affiliation: 'KAIST' },
@@ -105,7 +108,8 @@ export function buildSeed(userId: string, today: string): SeedData {
     {
       id: PAPER.reviewbench,
       doi: null,
-      arxivId: '2609.00003',
+      // 실재 불가능한 id. 위 9999.00001의 주석 참고
+      arxivId: '9999.00003',
       title: 'ReviewBench: Do LLM Code Reviewers Catch Real Regressions?',
       authors: [
         { name: 'Tomasz Nowak', affiliation: 'TU Delft' },
