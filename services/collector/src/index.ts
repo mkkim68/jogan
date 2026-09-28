@@ -20,6 +20,11 @@ import { selectBestPerPaper, type InterestMatches } from './match'
 
 const WATERMARK_KEY = 'collector:arxiv:last_submitted_at'
 /**
+ * 중복 실행 가드용 advisory lock 키. 값 자체에 의미는 없고(collector에 배정한 임의의 상수),
+ * 다른 파이프라인 단계가 생기면 서로 다른 키를 쓰면 된다.
+ */
+const COLLECTOR_LOCK_KEY = 610_927
+/**
  * 워터마크에서 거슬러 다시 조회하는 겹침. upsert라 중복 비용이 없다.
  *
  * 3일인 이유: arXiv의 색인·공개 지연이 1시간짜리 겹침보다 훨씬 크다. 2026-09-28 05:04 UTC
@@ -462,6 +467,15 @@ export async function match(deps: MatchDeps = {}): Promise<number> {
 
 async function main() {
   const started = Date.now()
+
+  // 두 실행이 겹치면(cron 도는 중 수동 실행, cron 재시도) 각 프로세스가 자기 레이트
+  // 리미터를 들고 있어 arXiv에는 요청 간격이 정책(3초)의 절반으로 보인다 — 차단 사유다.
+  // 세션 advisory lock이라 프로세스가 끝나면 자동으로 풀린다.
+  if (!(await (await loadDb()).tryAdvisoryLock(COLLECTOR_LOCK_KEY))) {
+    log('lock', '다른 collector 실행이 이미 돌고 있다(advisory lock 점유). 이번 실행은 아무 것도 하지 않고 끝낸다.')
+    return
+  }
+
   const { stored, newest } = await collect()
   if (newest) {
     const iso = newest.toISOString()
