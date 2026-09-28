@@ -81,6 +81,36 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
     }
   })
 
+  it('relevance는 [0, 1] 밖이면 DB가 거부한다', async () => {
+    const { db, papers, paperCandidates, upsertCandidates } = await import('../index')
+    const { and, eq } = await import('drizzle-orm')
+    const paper = await db.query.papers.findFirst()
+    expect(paper).toBeDefined()
+    if (!paper) return
+
+    try {
+      let caught: unknown = null
+      try {
+        await upsertCandidates([
+          { userId, paperId: paper.id, interestId: null, relevance: 1.5, collectedFor: '2026-09-27' },
+        ])
+      } catch (err) {
+        caught = err
+      }
+      // drizzle이 드라이버 오류를 감싸므로 제약 이름은 cause 쪽에 있다
+      expect(caught).toBeInstanceOf(Error)
+      const cause = caught instanceof Error ? caught.cause : null
+      expect(cause instanceof Error ? cause.message : String(cause)).toMatch(/relevance_range/)
+    } finally {
+      // 제약에 걸려 들어가지 않았어야 하지만, 혹시 남았다면 지운다
+      await db
+        .delete(paperCandidates)
+        .where(and(eq(paperCandidates.userId, userId), eq(paperCandidates.paperId, paper.id)))
+    }
+    // papers 테이블은 건드리지 않았다
+    expect(await db.query.papers.findFirst({ where: eq(papers.id, paper.id) })).toBeDefined()
+  })
+
   it('워터마크는 더 늦은 값으로만 전진한다 (뒤로 가지 않는다)', async () => {
     const { advancePipelineState, getPipelineState } = await import('../index')
     const key = '__test_watermark_monotonic'

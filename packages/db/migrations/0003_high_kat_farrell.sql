@@ -1,0 +1,1 @@
+ALTER TABLE "paper_candidates" ADD CONSTRAINT "paper_candidates_relevance_range" CHECK ("paper_candidates"."relevance" between 0 and 1);
