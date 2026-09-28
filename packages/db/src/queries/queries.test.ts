@@ -154,6 +154,59 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
       await db.delete(papers).where(eq(papers.arxivId, arxivId))
     }
   })
+
+  it('논문 임베딩 차원이 다르면 setPaperEmbedding이 던지고 행은 그대로다', async () => {
+    const { db, papers, upsertArxivPapers, setPaperEmbedding } = await import('../index')
+    const { EMBEDDING_DIM, EmbeddingDimensionError } = await import('@jogan/core')
+    const { eq } = await import('drizzle-orm')
+    const arxivId = '__test.00002'
+    const base = {
+      doi: null, arxivId, title: '차원 가드 테스트', authors: [{ name: '저자' }],
+      abstract: '초록', publishedAt: new Date('2026-09-20T00:00:00Z'),
+      source: 'arxiv' as const, venue: { name: 'arXiv', kind: 'preprint' as const },
+      pdfUrl: null, codeUrl: null, openAccess: true,
+    }
+    try {
+      await upsertArxivPapers([base])
+      const row = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      expect(row).toBeDefined()
+      if (!row) return
+      expect(row.embedding).toBeNull()
+
+      const wrongLength = Array.from({ length: EMBEDDING_DIM - 1 }, () => 0.1)
+      await expect(setPaperEmbedding(row.id, wrongLength)).rejects.toThrow(EmbeddingDimensionError)
+
+      const after = await db.query.papers.findFirst({ where: eq(papers.id, row.id) })
+      expect(after?.embedding).toBeNull()
+    } finally {
+      await db.delete(papers).where(eq(papers.arxivId, arxivId))
+    }
+  })
+
+  it('관심사 임베딩 차원이 다르면 setInterestEmbedding이 던지고 행은 그대로다', async () => {
+    const { db, interests, setInterestEmbedding } = await import('../index')
+    const { EMBEDDING_DIM, EmbeddingDimensionError } = await import('@jogan/core')
+    const { eq } = await import('drizzle-orm')
+    const label = '__test_dimension_guard'
+    try {
+      const [inserted] = await db
+        .insert(interests)
+        .values({ userId, label, embedding: null, seedPaperIds: [] })
+        .returning({ id: interests.id })
+      expect(inserted).toBeDefined()
+      if (!inserted) return
+      const before = await db.query.interests.findFirst({ where: eq(interests.id, inserted.id) })
+      expect(before?.embedding).toBeNull()
+
+      const wrongLength = Array.from({ length: EMBEDDING_DIM + 1 }, () => 0.2)
+      await expect(setInterestEmbedding(inserted.id, wrongLength)).rejects.toThrow(EmbeddingDimensionError)
+
+      const after = await db.query.interests.findFirst({ where: eq(interests.id, inserted.id) })
+      expect(after?.embedding).toBeNull()
+    } finally {
+      await db.delete(interests).where(eq(interests.label, label))
+    }
+  })
 })
 
 afterAll(async () => {
