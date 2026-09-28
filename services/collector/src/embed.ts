@@ -1,4 +1,4 @@
-import { EMBEDDING_DIM, VOYAGE_BATCH_SIZE, VOYAGE_MODEL } from '@jogan/core'
+import { EMBEDDING_DIM, EmbeddingDimensionError, VOYAGE_BATCH_SIZE, VOYAGE_MODEL } from '@jogan/core'
 import { z } from 'zod'
 import type { HttpClient } from './http'
 
@@ -47,7 +47,7 @@ export async function embedTexts(
       const v = byIndex.get(i)
       if (!v) throw new Error(`Voyage 응답에 index ${i}가 없다`)
       if (v.length !== EMBEDDING_DIM) {
-        throw new Error(`임베딩 차원이 ${EMBEDDING_DIM}이 아니다: ${v.length}`)
+        throw new EmbeddingDimensionError(EMBEDDING_DIM, v.length)
       }
       out.push(v)
     }

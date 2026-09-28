@@ -1,5 +1,5 @@
 import type { Interest, UserSettings } from '@jogan/core'
-import { EMBEDDING_DIM } from '@jogan/core'
+import { EMBEDDING_DIM, EmbeddingDimensionError } from '@jogan/core'
 import { and, eq, gte, isNull, sql } from 'drizzle-orm'
 import { db } from '../client'
 import { briefItems, briefs, interests, userSettings } from '../schema'
@@ -86,7 +86,7 @@ export async function listUnembeddedInterests(): Promise<
 
 export async function setInterestEmbedding(id: string, embedding: number[]): Promise<void> {
   if (embedding.length !== EMBEDDING_DIM) {
-    throw new Error(`임베딩 차원이 ${EMBEDDING_DIM}이 아니다: ${embedding.length}`)
+    throw new EmbeddingDimensionError(EMBEDDING_DIM, embedding.length)
   }
   await db.update(interests).set({ embedding }).where(eq(interests.id, id))
 }

@@ -1,5 +1,5 @@
 import type { Assessment, Author, BriefItem, Paper, PaperSummary, SavedItem, Venue } from '@jogan/core'
-import { EMBEDDING_DIM } from '@jogan/core'
+import { EMBEDDING_DIM, EmbeddingDimensionError } from '@jogan/core'
 import { and, cosineDistance, desc, eq, gte, isNull, ne, sql } from 'drizzle-orm'
 import { db } from '../client'
 import { assessments, briefItems, briefs, papers, savedItems } from '../schema'
@@ -127,7 +127,7 @@ export async function listUnembeddedPapers(
 
 export async function setPaperEmbedding(id: string, embedding: number[]): Promise<void> {
   if (embedding.length !== EMBEDDING_DIM) {
-    throw new Error(`임베딩 차원이 ${EMBEDDING_DIM}이 아니다: ${embedding.length}`)
+    throw new EmbeddingDimensionError(EMBEDDING_DIM, embedding.length)
   }
   await db.update(papers).set({ embedding }).where(eq(papers.id, id))
 }
