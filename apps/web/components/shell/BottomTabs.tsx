@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ComponentType } from 'react'
-import { BookmarkIcon, HomeIcon, InterestIcon } from '@/components/icons'
+import { BookmarkIcon, HomeIcon, InterestIcon, SettingsIcon } from '@/components/icons'
 
 type Tab = {
   href: string
@@ -14,12 +14,17 @@ type Tab = {
 const TABS: Tab[] = [
   { href: '/', label: '브리핑', Icon: HomeIcon },
   { href: '/saved', label: '저장함', Icon: BookmarkIcon },
-  { href: '/onboarding', label: '관심사', Icon: InterestIcon },
+  { href: '/interests', label: '관심사', Icon: InterestIcon },
+  { href: '/settings', label: '설정', Icon: SettingsIcon },
 ]
 
 /**
  * 폰 전용 하단 탭 (docs/DESIGN.md §3, §6).
  * 탭 바 56px + 하단 여백 10px = 66px. 각 탭은 `<Link>`이며 44px 이상의 터치 영역을 갖는다.
+ *
+ * DESIGN.md §6 시안은 탭 3개(브리핑/저장함/관심사)로 그려져 있지만, `/settings` 화면이
+ * 새로 생기면서 4개로 늘었다 — 390px 폭에서 탭당 ~97.5px, 세로는 부모 `h-14`(56px)를
+ * `flex-1` 자식이 그대로 채우므로 4개로 늘어도 각 탭의 터치 영역은 여전히 44px를 넘는다.
  */
 export function BottomTabs() {
   const pathname = usePathname()

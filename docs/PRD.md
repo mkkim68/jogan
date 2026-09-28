@@ -153,7 +153,7 @@ type BriefItem = {
   method: string; results: { label: string; value: string }[]
   limitations: { bySource: 'author' | 'ai'; text: string }[]
   quotes: { text: string; locator: string }[]   // 원문 인용 + "§3.2, p.4"
-  isSerendipity: boolean        // 관심사 바깥에서 섞은 곁가지 1편
+  isSerendipity: boolean        // 관심 주제와 유사한(주변) 분야 논문 1편
 }
 
 type SavedItem = {
@@ -225,7 +225,7 @@ type SavedItem = {
 | 리스크 | 대응 |
 |---|---|
 | **명성 편향** — 유명 기관·저자만 올라온다 | 저자 이력 가중치를 낮게, 내용 평가 우선. "신진 연구자의 좋은 논문 발굴"을 기능으로 내세울 수도 있다 |
-| **필터 버블** | 관심사 주변 분야를 섞는 "곁가지 1편"을 매일 포함 (`isSerendipity`) |
+| **필터 버블** | 관심사 주변 분야의 "유사 주제 1편"을 매일 포함 (`isSerendipity`) |
 | **LLM 평가 오류** | `AI 보조 의견` 명시, 이의 제기 경로 제공, 근거 문장 노출로 검증 가능하게 |
 | **경쟁** — Google Scholar 알림, Semantic Scholar 피드, Scholar Inbox | 차별점은 ①신뢰도 근거의 투명한 제시 ②두 트랙 구조 ③프리프린트 후속 추적 ④한국어 요약 |
 | **오픈액세스가 아닌 논문** | 초록만으로 평가하고 그 사실을 UI에 표기. 본문 미확인 논문은 검증 트랙으로 올리지 않는다 |

@@ -27,6 +27,16 @@ const config: Config = {
       },
       maxWidth: { prose: '660px' },
       screens: { tablet: '720px', desktop: '1080px' },
+      keyframes: {
+        'toast-fade': {
+          '0%': { opacity: '1' },
+          '75%': { opacity: '1' },
+          '100%': { opacity: '0' },
+        },
+      },
+      animation: {
+        'toast-fade': 'toast-fade 2s ease-in forwards',
+      },
     },
   },
   plugins: [],
