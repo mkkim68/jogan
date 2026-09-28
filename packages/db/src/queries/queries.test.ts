@@ -81,32 +81,43 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
     }
   })
 
-  it('후보는 더 높은 relevance로만 갱신된다', async () => {
-    const { db, papers, upsertCandidates, paperCandidates } = await import('../index')
+  it('후보는 더 높은 relevance로만 갱신되고, 그때 interestId도 함께 바뀐다', async () => {
+    const { db, papers, listInterests, upsertCandidates, paperCandidates } = await import('../index')
     const { and, eq } = await import('drizzle-orm')
     const paper = await db.query.papers.findFirst()
     expect(paper).toBeDefined()
     if (!paper) return
+
+    const userInterests = await listInterests(userId)
+    expect(userInterests.length).toBeGreaterThanOrEqual(2)
+    const [interestA, interestB] = userInterests
+    if (!interestA || !interestB) return
+
     try {
+      // 관심사 A로 0.6 삽입
       await upsertCandidates([
-        { userId, paperId: paper.id, interestId: null, relevance: 0.6, collectedFor: '2026-09-27' },
+        { userId, paperId: paper.id, interestId: interestA.id, relevance: 0.6, collectedFor: '2026-09-27' },
       ])
+      // 관심사 B로 더 낮은 0.4 — 갱신되면 안 된다 (interestId도 A 그대로)
       await upsertCandidates([
-        { userId, paperId: paper.id, interestId: null, relevance: 0.4, collectedFor: '2026-09-28' },
+        { userId, paperId: paper.id, interestId: interestB.id, relevance: 0.4, collectedFor: '2026-09-28' },
       ])
       const low = await db.query.paperCandidates.findFirst({
         where: and(eq(paperCandidates.userId, userId), eq(paperCandidates.paperId, paper.id)),
       })
       expect(low?.relevance).toBeCloseTo(0.6, 5)
+      expect(low?.interestId).toBe(interestA.id)
       expect(low?.collectedFor).toBe('2026-09-27')
 
+      // 관심사 B로 더 높은 0.9 — 갱신된다 (interestId도 B로 바뀐다)
       await upsertCandidates([
-        { userId, paperId: paper.id, interestId: null, relevance: 0.9, collectedFor: '2026-09-29' },
+        { userId, paperId: paper.id, interestId: interestB.id, relevance: 0.9, collectedFor: '2026-09-29' },
       ])
       const high = await db.query.paperCandidates.findFirst({
         where: and(eq(paperCandidates.userId, userId), eq(paperCandidates.paperId, paper.id)),
       })
       expect(high?.relevance).toBeCloseTo(0.9, 5)
+      expect(high?.interestId).toBe(interestB.id)
       expect(high?.collectedFor).toBe('2026-09-29')
     } finally {
       await db.delete(paperCandidates).where(eq(paperCandidates.userId, userId))
