@@ -20,6 +20,7 @@ pnpm dev                    # http://localhost:3100
 - `AUTH_SECRET` — `openssl rand -base64 32`
 - `SEED_USER_EMAIL` — Google 로그인에 쓸 본인 이메일. 시드 브리핑이 이 사용자에게 붙는다.
 - `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` — 아래 절차
+- `VOYAGE_API_KEY` — 관심사·논문 임베딩에 쓴다. https://voyageai.com 에서 발급.
 
 ### Google OAuth 클라이언트 만들기
 
