@@ -49,6 +49,12 @@ describe('buildSeed', () => {
     }
   })
 
+  it('관심사 임베딩은 전부 null이다 — 파이프라인이 채울 자리다', () => {
+    // listUnembeddedInterests가 `embedding IS NULL`로 고르므로, 가짜 벡터를 심으면
+    // 그 관심사는 영원히 진짜 임베딩을 못 받고 후보가 0건이 된다.
+    for (const i of seed.interests) expect(i.embedding).toBeNull()
+  })
+
   it('저장 항목에 후속 소식이 하나 있다', () => {
     expect(seed.saved.some((s) => s.followUp?.kind === 'accepted')).toBe(true)
   })

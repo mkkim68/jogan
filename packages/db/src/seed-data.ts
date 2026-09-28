@@ -57,10 +57,14 @@ const BRIEF_ID = 'c1000000-0000-4000-8000-000000000001'
 const ok = (value: number, reason: string) => ({ value, reason })
 
 export function buildSeed(userId: string, today: string): SeedData {
+  // 관심사 임베딩은 **반드시 null**이다. collector의 listUnembeddedInterests가
+  // `embedding IS NULL`로 대상을 고르기 때문에, 가짜 벡터를 심어두면 그 관심사는
+  // 영원히 진짜 임베딩을 받지 못하고 ④ 매칭에서 진짜 논문 벡터와 잡음을 비교해
+  // 조용히 후보 0건이 된다. (논문 쪽 fakeEmbedding은 화면용 시드라 그대로 둔다.)
   const interests: Interest[] = [
-    { id: INTEREST.memory, userId, label: 'LLM 에이전트의 장기 기억', embedding: fakeEmbedding('interest:memory'), seedPaperIds: [] },
-    { id: INTEREST.sleep, userId, label: '수면과 기억 공고화', embedding: fakeEmbedding('interest:sleep'), seedPaperIds: [] },
-    { id: INTEREST.review, userId, label: '코드 리뷰 자동화', embedding: fakeEmbedding('interest:review'), seedPaperIds: [] },
+    { id: INTEREST.memory, userId, label: 'LLM 에이전트의 장기 기억', embedding: null, seedPaperIds: [] },
+    { id: INTEREST.sleep, userId, label: '수면과 기억 공고화', embedding: null, seedPaperIds: [] },
+    { id: INTEREST.review, userId, label: '코드 리뷰 자동화', embedding: null, seedPaperIds: [] },
   ]
 
   const papers: Paper[] = [
