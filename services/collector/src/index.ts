@@ -79,8 +79,35 @@ export async function collect(deps: CollectDeps = {}): Promise<{ stored: number;
   let stored = 0
   let skipped = 0
   let newest: Date | null = null
-  const bumpNewest = (d: Date) => {
+  // 저장이 확인된 published_at 전부. 실패가 나중에 발견되면 워터마크를 다시 계산해야 해서
+  // 최댓값 하나만으로는 부족하다 (한 실행 최대 COLLECT_MAX_PER_RUN개라 메모리는 무시할 수준).
+  const storedDates: Date[] = []
+  /** 저장에 실패한 논문 중 가장 오래된 published_at. 워터마크는 이 앞에서 멈춰야 한다 */
+  let earliestFailed: Date | null = null
+
+  const recomputeNewest = () => {
+    const cutoff = earliestFailed
+    let best: Date | null = null
+    for (const d of storedDates) {
+      if (cutoff && d >= cutoff) continue
+      if (!best || d > best) best = d
+    }
+    newest = best
+  }
+  const noteStored = (d: Date) => {
+    storedDates.push(d)
+    if (earliestFailed && d >= earliestFailed) return
     if (!newest || d > newest) newest = d
+  }
+  /**
+   * 개별 재시도에서 한 편이 실패하면, 그 논문보다 **뒤에 있는** 성공분으로 워터마크가
+   * 전진해서는 안 된다 — 오름차순 조회라 워터마크를 넘긴 논문은 다음 실행의 조회 구간
+   * 밖으로 밀려 영구 유실된다. 실패 지점 앞의 마지막 성공분까지만 전진시킨다.
+   */
+  const noteFailed = (d: Date) => {
+    if (earliestFailed && d >= earliestFailed) return
+    earliestFailed = d
+    recomputeNewest()
   }
 
   // 루프를 빠져나온 이유. 기본값이 'max-per-run'인 것은 while 조건이 거짓이 되는 경우가
@@ -143,15 +170,16 @@ export async function collect(deps: CollectDeps = {}): Promise<{ stored: number;
       stored += await upsert(deduped)
       // 배치 upsert는 단일 SQL 문이다 — 여기 도달했다면 deduped 전체가 저장된 것이므로
       // 전부를 기준으로 워터마크를 전진시켜도 안전하다.
-      for (const p of deduped) bumpNewest(p.publishedAt)
+      for (const p of deduped) noteStored(p.publishedAt)
     } catch (err) {
       // DOI unique 충돌 등. 배치를 한 편씩 재시도해 나쁜 한 편만 건너뛴다.
       for (const p of deduped) {
         try {
           stored += await upsert([p])
-          bumpNewest(p.publishedAt)
+          noteStored(p.publishedAt)
         } catch (e2) {
           skipped++
+          noteFailed(p.publishedAt)
           log('store', `저장 실패로 건너뜀 ${p.arxivId}: ${String(e2)}`)
         }
       }
@@ -173,6 +201,13 @@ export async function collect(deps: CollectDeps = {}): Promise<{ stored: number;
     )
   }
 
+  if (earliestFailed) {
+    log(
+      'store',
+      `저장 실패가 있어 워터마크를 실패 지점(${earliestFailed.toISOString()}) 앞에서 멈춘다 — ` +
+        `다음 실행이 그 논문부터 다시 가져온다`,
+    )
+  }
   log('fetch', `저장 ${stored}편, 건너뜀 ${skipped}편`)
   return { stored, newest }
 }

@@ -88,6 +88,50 @@ describe('collect — 워터마크는 확정 저장된 논문에서만 전진한
   })
 })
 
+describe('collect — 개별 재시도에서 실패한 논문 뒤로는 워터마크가 가지 않는다', () => {
+  it('오래된 논문이 실패하고 더 새 논문이 성공해도, 워터마크는 실패 지점 앞에서 멈춘다', async () => {
+    // 오름차순이라 페이지 안에서도 오래된 순서다. 가운데(17:00)만 저장 실패시킨다.
+    const page = feed(3, [
+      entryXml('9400.00001', '2026-09-24T10:00:00Z'),
+      entryXml('9400.00002', '2026-09-24T17:00:00Z'), // 실패
+      entryXml('9400.00003', '2026-09-24T18:00:00Z'), // 성공하지만 실패 지점보다 뒤다
+    ])
+    const { client } = queuedXmlClient([page])
+
+    const upsert = async (rows: NewPaper[]): Promise<number> => {
+      if (rows.length > 1) throw new Error('시뮬레이션: 배치 upsert 실패')
+      const [p] = rows
+      if (p?.arxivId === '9400.00002') throw new Error('시뮬레이션: 저장 실패')
+      return rows.length
+    }
+
+    const result = await collect({ client, upsert, getWatermark: async () => null })
+
+    expect(result.stored).toBe(2)
+    // 18:00이 저장됐어도 워터마크가 거기로 가면 17:00짜리는 다음 실행 조회 구간 밖이 된다.
+    expect(result.newest?.toISOString()).toBe('2026-09-24T10:00:00.000Z')
+  })
+
+  it('가장 오래된 논문이 실패하면 워터마크는 전진하지 않는다', async () => {
+    const page = feed(2, [
+      entryXml('9410.00001', '2026-09-24T10:00:00Z'), // 실패
+      entryXml('9410.00002', '2026-09-24T18:00:00Z'),
+    ])
+    const { client } = queuedXmlClient([page])
+    const upsert = async (rows: NewPaper[]): Promise<number> => {
+      if (rows.length > 1) throw new Error('시뮬레이션: 배치 upsert 실패')
+      const [p] = rows
+      if (p?.arxivId === '9410.00001') throw new Error('시뮬레이션: 저장 실패')
+      return rows.length
+    }
+
+    const result = await collect({ client, upsert, getWatermark: async () => null })
+
+    expect(result.stored).toBe(1)
+    expect(result.newest).toBeNull()
+  })
+})
+
 describe('collect — 한 실행 상한 도달은 정상 종료와 구분해 로그한다', () => {
   it('COLLECT_MAX_PER_RUN에 걸려 멈추면 명시적으로 로그를 남긴다', async () => {
     const perPage = ARXIV_PAGE_SIZE
