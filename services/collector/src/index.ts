@@ -452,8 +452,11 @@ async function main() {
   const started = Date.now()
   const { stored, newest } = await collect()
   if (newest) {
-    await (await loadDb()).setPipelineState(WATERMARK_KEY, newest.toISOString())
-    log('fetch', `워터마크 → ${newest.toISOString()}`)
+    const iso = newest.toISOString()
+    // 겹침 구간만 훑은 실행은 저장된 워터마크보다 오래된 값을 들고 올 수 있다 —
+    // 그대로 덮어쓰면 워터마크가 뒤로 밀려 같은 구간을 매번 다시 받는다.
+    const advanced = await (await loadDb()).advancePipelineState(WATERMARK_KEY, iso)
+    log('fetch', advanced ? `워터마크 → ${iso}` : `워터마크 유지 (이번 실행의 최댓값 ${iso}은 기존보다 이르다)`)
   }
   await embed()
   const candidates = await match()

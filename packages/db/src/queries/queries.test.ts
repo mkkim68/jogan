@@ -81,6 +81,26 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
     }
   })
 
+  it('워터마크는 더 늦은 값으로만 전진한다 (뒤로 가지 않는다)', async () => {
+    const { advancePipelineState, getPipelineState } = await import('../index')
+    const key = '__test_watermark_monotonic'
+    try {
+      expect(await advancePipelineState(key, '2026-09-27T00:00:00.000Z')).toBe(true)
+      // 더 이른 값은 무시된다
+      expect(await advancePipelineState(key, '2026-09-20T00:00:00.000Z')).toBe(false)
+      expect(await getPipelineState(key)).toBe('2026-09-27T00:00:00.000Z')
+      // 같은 값도 전진이 아니다
+      expect(await advancePipelineState(key, '2026-09-27T00:00:00.000Z')).toBe(false)
+      // 더 늦은 값만 전진한다
+      expect(await advancePipelineState(key, '2026-09-28T00:00:00.000Z')).toBe(true)
+      expect(await getPipelineState(key)).toBe('2026-09-28T00:00:00.000Z')
+    } finally {
+      const { db, pipelineState } = await import('../index')
+      const { eq } = await import('drizzle-orm')
+      await db.delete(pipelineState).where(eq(pipelineState.key, key))
+    }
+  })
+
   it('후보는 더 높은 relevance로만 갱신되고, 그때 interestId도 함께 바뀐다', async () => {
     const { db, papers, listInterests, upsertCandidates, paperCandidates } = await import('../index')
     const { and, eq } = await import('drizzle-orm')
