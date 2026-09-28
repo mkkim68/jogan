@@ -1,4 +1,5 @@
 import { pathToFileURL } from 'node:url'
+import { config } from 'dotenv'
 import {
   ARXIV_CATEGORIES,
   ARXIV_MIN_INTERVAL_MS,
@@ -17,6 +18,10 @@ import { buildArxivQueryUrl, dedupeByArxivId, entryToPaper, fetchArxivPage, pars
 import { embedTexts, paperEmbeddingInput } from './embed'
 import { createHttpClient, type HttpClient } from './http'
 import { selectBestPerPaper, type InterestMatches } from './match'
+
+// @jogan/db를 타입으로만 import하게 되면서(기본 구현은 호출 시점 동적 import) 그 부작용으로
+// 딸려오던 dotenv 로드가 사라졌다. VOYAGE_API_KEY는 여기서 직접 읽으므로 명시적으로 불러온다.
+config({ path: ['.env', '../../.env'], quiet: true })
 
 const WATERMARK_KEY = 'collector:arxiv:last_submitted_at'
 /**
@@ -487,15 +492,6 @@ async function main() {
     advanced = await (await loadDb()).advancePipelineState(WATERMARK_KEY, iso)
     log('fetch', advanced ? `워터마크 → ${iso}` : `워터마크 유지 (이번 실행의 최댓값 ${iso}은 기존보다 이르다)`)
   }
-  // 오름차순 조회는 매 실행이 겹침 구간(OVERLAP_MS)부터 소비한다. 겹침 구간 하나가
-  // COLLECT_MAX_PER_RUN을 넘으면 워터마크가 영영 전진하지 못하고 같은 구간을 매일
-  // 다시 받는 교착이 된다 — 조용히 반복되면 안 되므로 여기서 실패로 끊는다.
-  if (hitMaxPerRun && !advanced) {
-    throw new Error(
-      `수집 교착: 한 실행 상한(${COLLECT_MAX_PER_RUN}편)에 도달했는데 워터마크가 전진하지 못했다. ` +
-        `겹침 구간(OVERLAP_MS)만으로 상한을 채우고 있다는 뜻이다 — 상한을 올리거나 겹침을 줄여야 한다.`,
-    )
-  }
   const embedded = await embed()
   const candidates = await match()
   log(
@@ -504,6 +500,23 @@ async function main() {
       `후보 ${candidates}편 · Voyage 추정 ${embedded.estimatedTokens}토큰(문자 수 ÷ 4 어림, 정확한 과금량 아님) · ` +
       `${((Date.now() - started) / 1000).toFixed(1)}초`,
   )
+
+  // 상한에 닿았는데 워터마크가 전진하지 못했다면 수집이 제자리걸음이라는 뜻이다.
+  // 오름차순 조회는 매 실행이 겹침 구간(OVERLAP_MS)부터 소비하므로, 겹침 구간 하나가
+  // COLLECT_MAX_PER_RUN을 넘으면 매일 같은 구간만 다시 받는 교착이 된다.
+  //
+  // 이 검사는 **embed·match가 끝난 뒤에** 한다. 앞에서 던지면 그날 저장한 논문이
+  // 임베딩되지 않아 모든 사용자의 브리핑이 비어버린다 — 알람을 울리자고 제품을
+  // 껐다 켜는 셈이다. 여기서 던지면 cron은 똑같이 종료 코드 1을 보고, 그날 브리핑은
+  // 정상적으로 나간다.
+  if (hitMaxPerRun && !advanced) {
+    throw new Error(
+      newest === null
+        ? `수집 교착: 한 실행 상한(${COLLECT_MAX_PER_RUN}편)에 도달했는데 저장에 성공한 논문이 하나도 없다 — DB 쪽을 확인해야 한다.`
+        : `수집 교착: 한 실행 상한(${COLLECT_MAX_PER_RUN}편)에 도달했는데 워터마크가 전진하지 못했다. ` +
+          `겹침 구간(OVERLAP_MS)만으로 상한을 채우고 있다는 뜻이다 — 상한을 올리거나 겹침을 줄여야 한다.`,
+    )
+  }
 }
 
 // `tsx src/index.ts`로 직접 실행될 때만 돈다 — 테스트가 collect/embed/match를 import할 때는
