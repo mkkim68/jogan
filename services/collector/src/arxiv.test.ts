@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import type { NewPaper } from '@jogan/db'
 import { buildArxivQueryUrl, dedupeByArxivId, entryToPaper, formatArxivDate, parseArxivFeed, stripVersion } from './arxiv'
 
 const xml = readFileSync(join(import.meta.dirname, 'fixtures/arxiv-feed.xml'), 'utf8')
@@ -95,16 +96,40 @@ describe('entryToPaper', () => {
     expect(entryToPaper({})).toBeNull()
     expect(entryToPaper(null)).toBeNull()
   })
+
+  it('published가 날짜로 파싱되지 않으면 null을 돌려준다', () => {
+    const entry = {
+      id: 'http://arxiv.org/abs/2609.30250v2',
+      title: '제목',
+      summary: '초록',
+      published: '날짜아님',
+      author: [{ name: 'Jane Doe' }],
+    }
+    expect(entryToPaper(entry)).toBeNull()
+  })
 })
 
 describe('dedupeByArxivId', () => {
   it('같은 id는 가장 높은 버전만 남긴다', () => {
     const mk = (arxivId: string, version: number, title: string) => ({
-      arxivId, version,
-      paper: { arxivId, title } as never,
+      arxivId,
+      version,
+      paper: {
+        doi: null,
+        arxivId,
+        title,
+        abstract: '초록',
+        authors: [{ name: 'A' }],
+        publishedAt: new Date('2026-09-25T00:00:00Z'),
+        source: 'arxiv',
+        venue: { name: 'arXiv', kind: 'preprint' },
+        pdfUrl: `https://arxiv.org/pdf/${arxivId}`,
+        codeUrl: null,
+        openAccess: true,
+      } satisfies NewPaper,
     })
     const out = dedupeByArxivId([mk('a', 1, 'v1'), mk('a', 3, 'v3'), mk('b', 1, 'b1'), mk('a', 2, 'v2')])
     expect(out).toHaveLength(2)
-    expect(out.map((p) => (p as unknown as { title: string }).title).sort()).toEqual(['b1', 'v3'])
+    expect(out.map((p) => p.title).sort()).toEqual(['b1', 'v3'])
   })
 })
