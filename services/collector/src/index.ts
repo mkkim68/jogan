@@ -237,6 +237,17 @@ async function embedPapers(
       }
     }
   }
+
+  // 한 편도 임베딩하지 못했는데 실패는 있었다면, 개별 항목 문제가 아니라 단계 자체가
+  // 죽은 것이다(키 만료·크레딧 소진이면 전 호출이 401로 떨어진다). 조용히 0편으로
+  // 끝내면 exit 0이라 새벽 cron에는 초록불로 보인다 — 여기서 던져 exit 1로 만든다.
+  // 임베딩할 게 원래 없었던 실행(count 0, failed 0)은 정상이므로 던지지 않는다.
+  if (count === 0 && failed.size > 0) {
+    throw new Error(
+      `논문 임베딩이 전량 실패했다 (${failed.size}편 시도, 성공 0편). ` +
+        'Voyage 키/크레딧/네트워크를 확인할 것 — 개별 논문 문제가 아니다.',
+    )
+  }
   return count
 }
 
@@ -255,6 +266,7 @@ async function embedInterests(
   if (pending.length === 0) return 0
 
   let count = 0
+  let failed = 0
   try {
     const vectors = await embedTexts(
       client,
@@ -280,9 +292,17 @@ async function embedInterests(
         count++
       } catch (e2) {
         if (e2 instanceof EmbeddingDimensionError) throw e2
+        failed++
         log('embed', `관심사 임베딩 실패로 건너뜀 ${it.id}: ${String(e2)}`)
       }
     }
+  }
+
+  // 논문 쪽과 같은 이유 — 전량 실패는 항목 문제가 아니라 단계 장애다. exit 0으로 숨기지 않는다.
+  if (count === 0 && failed > 0) {
+    throw new Error(
+      `관심사 임베딩이 전량 실패했다 (${failed}개 시도, 성공 0개). Voyage 키/크레딧/네트워크를 확인할 것.`,
+    )
   }
   return count
 }

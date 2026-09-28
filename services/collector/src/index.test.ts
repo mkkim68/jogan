@@ -342,6 +342,65 @@ describe('embed — 한 항목의 실패가 전체 임베딩 단계를 막지 �
   })
 })
 
+describe('embed — 전량 실패는 exit 0으로 숨기지 않는다', () => {
+  it('모든 논문 임베딩이 실패하면(키 만료 등) 0편을 반환하지 않고 던진다', async () => {
+    // 401은 재시도 대상이 아니라 배치도 개별도 그대로 실패한다 — 키 만료/크레딧 소진의 모습
+    const client = stubEmbedClient(() => new Response('unauthorized', { status: 401 }))
+
+    await expect(
+      embed({
+        apiKey: 'revoked',
+        client,
+        listPapers: async () => [
+          { id: 'p1', title: 't1', abstract: 'a1' },
+          { id: 'p2', title: 't2', abstract: 'a2' },
+        ],
+        setPaper: async () => {},
+        listInterests: async () => [],
+        setInterest: async () => {},
+      }),
+    ).rejects.toThrow(/전량 실패/)
+  })
+
+  it('모든 관심사 임베딩이 실패해도 던진다', async () => {
+    const client = stubEmbedClient((input) =>
+      // 논문은 정상이고 관심사만 실패하는 상황 — 관심사 단계도 따로 던져야 한다
+      input.some((t) => t.startsWith('관심사')) ? new Response('nope', { status: 401 }) : okVectorResponse(1024),
+    )
+
+    let listed = false
+    await expect(
+      embed({
+        apiKey: 'k',
+        client,
+        listPapers: async () => {
+          if (listed) return []
+          listed = true
+          return [{ id: 'p1', title: 'paper', abstract: 'a' }]
+        },
+        setPaper: async () => {},
+        listInterests: async (): Promise<InterestListRow[]> => [{ id: 'i1', label: '관심사 하나', userId: 'u1' }],
+        setInterest: async () => {},
+      }),
+    ).rejects.toThrow(/전량 실패/)
+  })
+
+  it('임베딩할 것이 애초에 없으면 조용히 0을 반환한다 (정상 실행)', async () => {
+    const client = stubEmbedClient(() => new Response('호출되면 안 된다', { status: 500 }))
+
+    const result = await embed({
+      apiKey: 'k',
+      client,
+      listPapers: async () => [],
+      setPaper: async () => {},
+      listInterests: async () => [],
+      setInterest: async () => {},
+    })
+
+    expect(result).toEqual({ papers: 0, interests: 0 })
+  })
+})
+
 describe('embed — VOYAGE_API_KEY 부재', () => {
   it('키가 없으면 조용히 넘어가지 않고 명확한 에러로 던진다', async () => {
     const original = process.env.VOYAGE_API_KEY
