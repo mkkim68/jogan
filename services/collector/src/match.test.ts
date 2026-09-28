@@ -40,9 +40,15 @@ describe('selectBestPerPaper', () => {
       0.45,
       50,
     )
+    expect(out).toHaveLength(1)
     const [first] = out
     if (first === undefined) throw new Error('결과가 비어 있다')
     expect(first.interestId).toBe('i2')
+  })
+
+  it('임계값과 정확히 같으면 남긴다 (하한은 포함)', () => {
+    const out = selectBestPerPaper([{ interestId: 'i1', matches: [{ paperId: 'p1', relevance: 0.45 }] }], 0.45, 50)
+    expect(out).toEqual([{ paperId: 'p1', interestId: 'i1', relevance: 0.45 }])
   })
 
   it('빈 입력은 빈 결과', () => {
