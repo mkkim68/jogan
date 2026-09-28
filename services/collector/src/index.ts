@@ -9,6 +9,7 @@ import {
   COLLECT_WINDOW_DAYS,
   EmbeddingDimensionError,
   RELEVANCE_THRESHOLD,
+  VOYAGE_BATCH_SIZE,
 } from '@jogan/core'
 import type { CandidateRow, NewPaper } from '@jogan/db'
 import { z } from 'zod'
@@ -32,6 +33,12 @@ const OVERLAP_MS = 3 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 
 const log = (stage: string, msg: string) => console.log(`[collector:${stage}] ${msg}`)
+
+/**
+ * 비용 로그용 토큰 어림치. 정확한 토크나이저를 부르지 않고 문자 수로 나눈 **추정치**다
+ * (영문 기준 대략 4자 = 1토큰). 청구서 대신 "오늘 밤 규모가 평소와 비슷한가"를 보는 용도다.
+ */
+const estimateTokens = (chars: number) => Math.round(chars / 4)
 
 /**
  * `@jogan/db`는 **import 시점에** DATABASE_URL을 요구한다(env.ts가 없으면 던진다).
@@ -233,22 +240,23 @@ async function embedPapers(
   apiKey: string,
   listPapers: (limit: number) => Promise<PaperListRow[]>,
   setPaper: (id: string, embedding: number[]) => Promise<void>,
-): Promise<number> {
+): Promise<{ count: number; chars: number }> {
   const failed = new Set<string>()
   let count = 0
+  let chars = 0
 
   for (;;) {
-    const fetched = await listPapers(256)
+    // Voyage 한 요청의 상한과 같은 크기로 가져온다. 더 크게 가져오면 embedTexts가 내부에서
+    // 여러 요청으로 쪼개는데, 뒷 요청 하나가 실패하면 앞 요청에서 이미 받은 벡터까지 버리고
+    // 전부를 한 건씩 다시 부른다 — 그대로 돈이다 (CLAUDE.md 비용 규칙).
+    const fetched = await listPapers(VOYAGE_BATCH_SIZE)
     const batch = fetched.filter((p) => !failed.has(p.id))
     if (batch.length === 0) break
 
     try {
-      const vectors = await embedTexts(
-        client,
-        apiKey,
-        batch.map((p) => paperEmbeddingInput(p.title, p.abstract)),
-        'document',
-      )
+      const inputs = batch.map((p) => paperEmbeddingInput(p.title, p.abstract))
+      chars += inputs.reduce((sum, t) => sum + t.length, 0)
+      const vectors = await embedTexts(client, apiKey, inputs, 'document')
       for (let i = 0; i < batch.length; i++) {
         const p = batch[i]
         const vector = vectors[i]
@@ -262,7 +270,9 @@ async function embedPapers(
       log('embed', `배치 실패, 한 편씩 재시도: ${String(err)}`)
       for (const p of batch) {
         try {
-          const [vector] = await embedTexts(client, apiKey, [paperEmbeddingInput(p.title, p.abstract)], 'document')
+          const input = paperEmbeddingInput(p.title, p.abstract)
+          chars += input.length
+          const [vector] = await embedTexts(client, apiKey, [input], 'document')
           if (!vector) throw new Error('Voyage 응답에 벡터가 없다')
           await setPaper(p.id, vector)
           count++
@@ -285,7 +295,7 @@ async function embedPapers(
         'Voyage 키/크레딧/네트워크를 확인할 것 — 개별 논문 문제가 아니다.',
     )
   }
-  return count
+  return { count, chars }
 }
 
 /**
@@ -298,19 +308,17 @@ async function embedInterests(
   apiKey: string,
   listInterests: () => Promise<InterestListRow[]>,
   setInterest: (id: string, embedding: number[]) => Promise<void>,
-): Promise<number> {
+): Promise<{ count: number; chars: number }> {
   const pending = await listInterests()
-  if (pending.length === 0) return 0
+  if (pending.length === 0) return { count: 0, chars: 0 }
 
   let count = 0
+  let chars = 0
   let failed = 0
   try {
-    const vectors = await embedTexts(
-      client,
-      apiKey,
-      pending.map((i) => i.label),
-      'query',
-    )
+    const labels = pending.map((i) => i.label)
+    chars += labels.reduce((sum, t) => sum + t.length, 0)
+    const vectors = await embedTexts(client, apiKey, labels, 'query')
     for (let i = 0; i < pending.length; i++) {
       const it = pending[i]
       const vector = vectors[i]
@@ -323,6 +331,7 @@ async function embedInterests(
     log('embed', `관심사 배치 실패, 한 개씩 재시도: ${String(err)}`)
     for (const it of pending) {
       try {
+        chars += it.label.length
         const [vector] = await embedTexts(client, apiKey, [it.label], 'query')
         if (!vector) throw new Error('Voyage 응답에 벡터가 없다')
         await setInterest(it.id, vector)
@@ -341,7 +350,7 @@ async function embedInterests(
       `관심사 임베딩이 전량 실패했다 (${failed}개 시도, 성공 0개). Voyage 키/크레딧/네트워크를 확인할 것.`,
     )
   }
-  return count
+  return { count, chars }
 }
 
 /**
@@ -350,7 +359,9 @@ async function embedInterests(
  * 절대 여기서 삼키지 않는다 — 이 함수를 호출하는 `main()`까지 그대로 전파돼 비정상 종료해야
  * 한다. 그 외 실패(타임아웃, 잘못된 응답, 개별 논문/관심사 문제)는 해당 항목만 건너뛰고 계속한다.
  */
-export async function embed(deps: EmbedDeps = {}): Promise<{ papers: number; interests: number }> {
+export async function embed(
+  deps: EmbedDeps = {},
+): Promise<{ papers: number; interests: number; estimatedTokens: number }> {
   const apiKey = deps.apiKey ?? process.env.VOYAGE_API_KEY
   if (!apiKey) {
     throw new Error(
@@ -368,10 +379,11 @@ export async function embed(deps: EmbedDeps = {}): Promise<{ papers: number; int
     deps.setInterest ??
     (async (id: string, embedding: number[]) => (await loadDb()).setInterestEmbedding(id, embedding))
 
-  const paperCount = await embedPapers(client, apiKey, listPapers, setPaper)
-  const interestCount = await embedInterests(client, apiKey, listInterests, setInterest)
-  log('embed', `논문 ${paperCount}편, 관심사 ${interestCount}개`)
-  return { papers: paperCount, interests: interestCount }
+  const papers = await embedPapers(client, apiKey, listPapers, setPaper)
+  const interests = await embedInterests(client, apiKey, listInterests, setInterest)
+  const estimatedTokens = estimateTokens(papers.chars + interests.chars)
+  log('embed', `논문 ${papers.count}편, 관심사 ${interests.count}개, 추정 ${estimatedTokens}토큰(문자 수 어림)`)
+  return { papers: papers.count, interests: interests.count, estimatedTokens }
 }
 
 export type MatchDeps = {
@@ -458,9 +470,14 @@ async function main() {
     const advanced = await (await loadDb()).advancePipelineState(WATERMARK_KEY, iso)
     log('fetch', advanced ? `워터마크 → ${iso}` : `워터마크 유지 (이번 실행의 최댓값 ${iso}은 기존보다 이르다)`)
   }
-  await embed()
+  const embedded = await embed()
   const candidates = await match()
-  log('done', `논문 ${stored}편 저장, 후보 ${candidates}편, ${((Date.now() - started) / 1000).toFixed(1)}초`)
+  log(
+    'done',
+    `논문 ${stored}편 저장 · 임베딩 논문 ${embedded.papers}편/관심사 ${embedded.interests}개 · ` +
+      `후보 ${candidates}편 · Voyage 추정 ${embedded.estimatedTokens}토큰(문자 수 ÷ 4 어림, 정확한 과금량 아님) · ` +
+      `${((Date.now() - started) / 1000).toFixed(1)}초`,
+  )
 }
 
 // `tsx src/index.ts`로 직접 실행될 때만 돈다 — 테스트가 collect/embed/match를 import할 때는

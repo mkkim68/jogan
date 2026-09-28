@@ -4,10 +4,12 @@ import {
   EMBEDDING_DIM,
   EmbeddingDimensionError,
   RELEVANCE_THRESHOLD,
+  VOYAGE_BATCH_SIZE,
 } from '@jogan/core'
 import { describe, expect, it } from 'vitest'
 import type { CandidateRow, NewPaper } from '@jogan/db'
 import { collect, embed, match, type InterestListRow, type PaperListRow } from './index'
+import { paperEmbeddingInput } from './embed'
 import type { HttpClient } from './http'
 
 /** 최소한의 유효한 entry 하나짜리 arXiv Atom 피드. `noUncheckedIndexedAccess` 때문에
@@ -447,7 +449,31 @@ describe('embed — 전량 실패는 exit 0으로 숨기지 않는다', () => {
       setInterest: async () => {},
     })
 
-    expect(result).toEqual({ papers: 0, interests: 0 })
+    expect(result).toEqual({ papers: 0, interests: 0, estimatedTokens: 0 })
+  })
+})
+
+describe('embed — 배치 크기와 비용 로그', () => {
+  it('논문 조회를 Voyage 요청 상한과 같은 크기로 한다 (한 번의 실패로 버려지는 벡터를 줄인다)', async () => {
+    const limits: number[] = []
+    const client = stubEmbedClient(() => okVectorResponse(EMBEDDING_DIM))
+
+    const result = await embed({
+      apiKey: 'k',
+      client,
+      listPapers: async (limit): Promise<PaperListRow[]> => {
+        limits.push(limit)
+        return limits.length === 1 ? [{ id: 'p1', title: 't', abstract: 'a' }] : []
+      },
+      setPaper: async () => {},
+      listInterests: async () => [],
+      setInterest: async () => {},
+    })
+
+    expect(limits[0]).toBe(VOYAGE_BATCH_SIZE)
+    expect(result.papers).toBe(1)
+    // 추정 토큰은 보낸 문자 수 ÷ 4 (어림치)
+    expect(result.estimatedTokens).toBe(Math.round(paperEmbeddingInput('t', 'a').length / 4))
   })
 })
 
