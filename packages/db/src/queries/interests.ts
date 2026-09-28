@@ -84,6 +84,16 @@ export async function listUnembeddedInterests(): Promise<
     .where(isNull(interests.embedding))
 }
 
+/** ④ 매칭이 쓰는 사용자별 관심사 벡터. 임베딩이 아직 없는 관심사도 포함해 돌려준다 */
+export async function listInterestEmbeddings(
+  userId: string,
+): Promise<{ id: string; embedding: number[] | null }[]> {
+  return db
+    .select({ id: interests.id, embedding: interests.embedding })
+    .from(interests)
+    .where(eq(interests.userId, userId))
+}
+
 export async function setInterestEmbedding(id: string, embedding: number[]): Promise<void> {
   if (embedding.length !== EMBEDDING_DIM) {
     throw new EmbeddingDimensionError(EMBEDDING_DIM, embedding.length)

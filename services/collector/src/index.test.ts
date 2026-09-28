@@ -1,7 +1,13 @@
-import { ARXIV_PAGE_SIZE, COLLECT_MAX_PER_RUN, EmbeddingDimensionError } from '@jogan/core'
+import {
+  ARXIV_PAGE_SIZE,
+  COLLECT_MAX_PER_RUN,
+  EMBEDDING_DIM,
+  EmbeddingDimensionError,
+  RELEVANCE_THRESHOLD,
+} from '@jogan/core'
 import { describe, expect, it } from 'vitest'
-import type { NewPaper } from '@jogan/db'
-import { collect, embed, type InterestListRow, type PaperListRow } from './index'
+import type { CandidateRow, NewPaper } from '@jogan/db'
+import { collect, embed, match, type InterestListRow, type PaperListRow } from './index'
 import type { HttpClient } from './http'
 
 /** 최소한의 유효한 entry 하나짜리 arXiv Atom 피드. `noUncheckedIndexedAccess` 때문에
@@ -410,5 +416,133 @@ describe('embed — VOYAGE_API_KEY 부재', () => {
     } finally {
       if (original !== undefined) process.env.VOYAGE_API_KEY = original
     }
+  })
+})
+
+
+/** 임베딩 벡터 하나. 값 자체는 쓰이지 않고 matchPapers 스텁이 관심사별 결과를 돌려준다 */
+const interestVec = vec(EMBEDDING_DIM, 0.5)
+
+function captureLogs(): { logs: string[]; restore: () => void } {
+  const logs: string[] = []
+  const originalLog = console.log
+  console.log = (msg?: unknown) => {
+    logs.push(String(msg))
+  }
+  return { logs, restore: () => { console.log = originalLog } }
+}
+
+describe('match — 사용자 단위 격리', () => {
+  it('한 사용자가 실패해도 나머지 사용자는 계속 처리된다', async () => {
+    const upserted: CandidateRow[][] = []
+    const { logs, restore } = captureLogs()
+    let total: number
+    try {
+      total = await match({
+        collectedFor: '2026-09-28',
+        listUserIds: async () => ['u1', 'u2', 'u3'],
+        listInterests: async (userId) => {
+          // u2는 읽는 도중 관심사가 지워진 상황을 흉내 낸다
+          if (userId === 'u2') throw new Error('시뮬레이션: interest_id FK 위반')
+          return [{ id: `${userId}-i1`, embedding: interestVec }]
+        },
+        matchPapers: async () => [{ paperId: 'p1', relevance: 0.9 }],
+        upsertCandidates: async (rows) => {
+          upserted.push(rows)
+        },
+      })
+    } finally {
+      restore()
+    }
+
+    expect(total).toBe(2)
+    expect(upserted.flat().map((r) => r.userId)).toEqual(['u1', 'u3'])
+    expect(logs.some((m) => m.includes('사용자 u2 처리 실패로 건너뜀'))).toBe(true)
+    expect(logs.some((m) => m.includes('사용자 1명은 실패로 건너뛰었다'))).toBe(true)
+  })
+
+  it('upsert 단계에서 터져도 그 사용자만 건너뛴다', async () => {
+    const saved: string[] = []
+    const { logs, restore } = captureLogs()
+    let total: number
+    try {
+      total = await match({
+        collectedFor: '2026-09-28',
+        listUserIds: async () => ['u1', 'u2'],
+        listInterests: async (userId) => [{ id: `${userId}-i1`, embedding: interestVec }],
+        matchPapers: async () => [{ paperId: 'p1', relevance: 0.8 }],
+        upsertCandidates: async (rows) => {
+          const first = rows[0]
+          if (first?.userId === 'u1') throw new Error('시뮬레이션: paper_candidates upsert 실패')
+          for (const r of rows) saved.push(r.userId)
+        },
+      })
+    } finally {
+      restore()
+    }
+
+    expect(total).toBe(1)
+    expect(saved).toEqual(['u2'])
+    expect(logs.some((m) => m.includes('사용자 u1 처리 실패로 건너뜀'))).toBe(true)
+  })
+
+  it('차원 불일치는 사용자 격리 catch도 삼키지 않고 그대로 던진다', async () => {
+    await expect(
+      match({
+        collectedFor: '2026-09-28',
+        listUserIds: async () => ['u1', 'u2'],
+        listInterests: async (userId) => [{ id: `${userId}-i1`, embedding: interestVec }],
+        matchPapers: async () => {
+          throw new EmbeddingDimensionError(EMBEDDING_DIM, 3)
+        },
+        upsertCandidates: async () => {},
+      }),
+    ).rejects.toThrow(EmbeddingDimensionError)
+  })
+
+  it('임베딩이 없는 관심사는 실패가 아니라 건너뛰기로 로그한다', async () => {
+    const upserted: CandidateRow[][] = []
+    const { logs, restore } = captureLogs()
+    let total: number
+    try {
+      total = await match({
+        collectedFor: '2026-09-28',
+        listUserIds: async () => ['u1'],
+        listInterests: async () => [
+          { id: 'i-null', embedding: null },
+          { id: 'i-ok', embedding: interestVec },
+        ],
+        matchPapers: async () => [{ paperId: 'p1', relevance: 0.7 }],
+        upsertCandidates: async (rows) => {
+          upserted.push(rows)
+        },
+      })
+    } finally {
+      restore()
+    }
+
+    expect(total).toBe(1)
+    expect(upserted.flat()[0]?.interestId).toBe('i-ok')
+    expect(logs.some((m) => m.includes('i-null') && m.includes('임베딩이 없어'))).toBe(true)
+    expect(logs.some((m) => m.includes('처리 실패로 건너뜀'))).toBe(false)
+  })
+
+  it('임계값 미만은 후보가 되지 않고, collectedFor는 주입값 그대로 쓰인다', async () => {
+    const upserted: CandidateRow[] = []
+    await match({
+      collectedFor: '2026-09-28',
+      listUserIds: async () => ['u1'],
+      listInterests: async () => [{ id: 'i1', embedding: interestVec }],
+      matchPapers: async () => [
+        { paperId: 'high', relevance: 0.9 },
+        { paperId: 'low', relevance: RELEVANCE_THRESHOLD - 0.01 },
+      ],
+      upsertCandidates: async (rows) => {
+        upserted.push(...rows)
+      },
+    })
+
+    expect(upserted.map((r) => r.paperId)).toEqual(['high'])
+    expect(upserted[0]?.collectedFor).toBe('2026-09-28')
   })
 })

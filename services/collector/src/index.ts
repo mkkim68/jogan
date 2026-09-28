@@ -10,23 +10,7 @@ import {
   EmbeddingDimensionError,
   RELEVANCE_THRESHOLD,
 } from '@jogan/core'
-import {
-  db,
-  getPipelineState as dbGetPipelineState,
-  interests as interestsTable,
-  listUnembeddedInterests as dbListUnembeddedInterests,
-  listUnembeddedPapers as dbListUnembeddedPapers,
-  matchPapersForInterest,
-  setInterestEmbedding as dbSetInterestEmbedding,
-  setPaperEmbedding as dbSetPaperEmbedding,
-  setPipelineState,
-  todayInSeoul,
-  upsertArxivPapers as dbUpsertArxivPapers,
-  upsertCandidates,
-  users,
-  type NewPaper,
-} from '@jogan/db'
-import { eq } from 'drizzle-orm'
+import type { CandidateRow, NewPaper } from '@jogan/db'
 import { z } from 'zod'
 import { buildArxivQueryUrl, dedupeByArxivId, entryToPaper, fetchArxivPage, parseArxivFeed, stripVersion } from './arxiv'
 import { embedTexts, paperEmbeddingInput } from './embed'
@@ -39,6 +23,15 @@ const OVERLAP_MS = 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 
 const log = (stage: string, msg: string) => console.log(`[collector:${stage}] ${msg}`)
+
+/**
+ * `@jogan/db`는 **import 시점에** DATABASE_URL을 요구한다(env.ts가 없으면 던진다).
+ * 기본 구현을 모듈 최상단에서 정적으로 가져오면, 의존성을 전부 주입받아 DB를 한 번도
+ * 건드리지 않는 순수 오케스트레이션 테스트까지 DB 설정을 강요당한다.
+ * 그래서 실제 구현은 **호출 시점에** 동적으로 불러온다 — 주입된 의존성만 쓰는 테스트는
+ * 이 경로를 아예 밟지 않는다.
+ */
+const loadDb = () => import('@jogan/db')
 
 /** entryToPaper가 이미 검증한 엔트리에서 원본 id(버전 포함)만 다시 뽑는다 */
 const EntryId = z.object({ id: z.string() })
@@ -63,8 +56,8 @@ export async function collect(deps: CollectDeps = {}): Promise<{ stored: number;
   const arxiv =
     deps.client ??
     createHttpClient({ minIntervalMs: ARXIV_MIN_INTERVAL_MS, maxRetries: 3, timeoutMs: 30_000 }, {})
-  const upsert = deps.upsert ?? dbUpsertArxivPapers
-  const getWatermark = deps.getWatermark ?? dbGetPipelineState
+  const upsert = deps.upsert ?? (async (rows: NewPaper[]) => (await loadDb()).upsertArxivPapers(rows))
+  const getWatermark = deps.getWatermark ?? (async (key: string) => (await loadDb()).getPipelineState(key))
 
   const saved = await getWatermark(WATERMARK_KEY)
   const to = new Date()
@@ -322,10 +315,14 @@ export async function embed(deps: EmbedDeps = {}): Promise<{ papers: number; int
     )
   }
   const client = deps.client ?? createHttpClient({ minIntervalMs: 0, maxRetries: 3, timeoutMs: 60_000 }, {})
-  const listPapers = deps.listPapers ?? dbListUnembeddedPapers
-  const setPaper = deps.setPaper ?? dbSetPaperEmbedding
-  const listInterests = deps.listInterests ?? dbListUnembeddedInterests
-  const setInterest = deps.setInterest ?? dbSetInterestEmbedding
+  const listPapers =
+    deps.listPapers ?? (async (limit: number) => (await loadDb()).listUnembeddedPapers(limit))
+  const setPaper =
+    deps.setPaper ?? (async (id: string, embedding: number[]) => (await loadDb()).setPaperEmbedding(id, embedding))
+  const listInterests = deps.listInterests ?? (async () => (await loadDb()).listUnembeddedInterests())
+  const setInterest =
+    deps.setInterest ??
+    (async (id: string, embedding: number[]) => (await loadDb()).setInterestEmbedding(id, embedding))
 
   const paperCount = await embedPapers(client, apiKey, listPapers, setPaper)
   const interestCount = await embedInterests(client, apiKey, listInterests, setInterest)
@@ -333,44 +330,77 @@ export async function embed(deps: EmbedDeps = {}): Promise<{ papers: number; int
   return { papers: paperCount, interests: interestCount }
 }
 
-/** ④ 관련성 매칭 */
-export async function match(): Promise<number> {
+export type MatchDeps = {
+  listUserIds?: () => Promise<string[]>
+  listInterests?: (userId: string) => Promise<{ id: string; embedding: number[] | null }[]>
+  matchPapers?: (
+    embedding: number[],
+    since: Date,
+    limit: number,
+  ) => Promise<{ paperId: string; relevance: number }[]>
+  upsertCandidates?: (rows: CandidateRow[]) => Promise<void>
+  /** KST 기준 수집일. 주입하지 않으면 `@jogan/db`의 todayInSeoul() */
+  collectedFor?: string
+}
+
+/**
+ * ④ 관련성 매칭.
+ * 사용자 한 명의 실패(예: 읽은 뒤 삭제된 관심사 때문에 interest_id FK 위반)가 나머지
+ * 사용자까지 죽이지 않도록 사용자 단위로 격리한다 (CLAUDE.md: 파이프라인 전체를 죽이지 않는다).
+ * 유일한 예외는 `EmbeddingDimensionError`다 — 데이터가 이미 깨졌다는 신호라 그대로 다시 던진다.
+ */
+export async function match(deps: MatchDeps = {}): Promise<number> {
+  const listUserIds = deps.listUserIds ?? (async () => (await loadDb()).listUserIds())
+  const listInterests =
+    deps.listInterests ?? (async (userId: string) => (await loadDb()).listInterestEmbeddings(userId))
+  const matchPapers =
+    deps.matchPapers ??
+    (async (embedding: number[], since: Date, limit: number) =>
+      (await loadDb()).matchPapersForInterest(embedding, since, limit))
+  const upsert = deps.upsertCandidates ?? (async (rows: CandidateRow[]) => (await loadDb()).upsertCandidates(rows))
+  const collectedFor = deps.collectedFor ?? (await loadDb()).todayInSeoul()
+
   const since = new Date(Date.now() - COLLECT_WINDOW_DAYS * DAY_MS)
-  const collectedFor = todayInSeoul()
-  const allUsers = await db.select({ id: users.id }).from(users)
+  const userIds = await listUserIds()
   let total = 0
+  let failedUsers = 0
 
-  for (const user of allUsers) {
-    const owned = await db
-      .select({ id: interestsTable.id, embedding: interestsTable.embedding })
-      .from(interestsTable)
-      .where(eq(interestsTable.userId, user.id))
+  for (const userId of userIds) {
+    try {
+      const owned = await listInterests(userId)
 
-    const groups: InterestMatches[] = []
-    for (const it of owned) {
-      if (!it.embedding) {
-        log('match', `관심사 ${it.id}는 아직 임베딩이 없어 건너뜀`)
-        continue
+      const groups: InterestMatches[] = []
+      for (const it of owned) {
+        if (!it.embedding) {
+          log('match', `관심사 ${it.id}는 아직 임베딩이 없어 건너뜀`)
+          continue
+        }
+        groups.push({
+          interestId: it.id,
+          matches: await matchPapers(it.embedding, since, CANDIDATES_PER_INTEREST),
+        })
       }
-      groups.push({
-        interestId: it.id,
-        matches: await matchPapersForInterest(it.embedding, since, CANDIDATES_PER_INTEREST),
-      })
-    }
 
-    const selected = selectBestPerPaper(groups, RELEVANCE_THRESHOLD, CANDIDATES_PER_INTEREST)
-    await upsertCandidates(
-      selected.map((s) => ({
-        userId: user.id,
-        paperId: s.paperId,
-        interestId: s.interestId,
-        relevance: s.relevance,
-        collectedFor,
-      })),
-    )
-    total += selected.length
-    log('match', `사용자 ${user.id}: 후보 ${selected.length}편`)
+      const selected = selectBestPerPaper(groups, RELEVANCE_THRESHOLD, CANDIDATES_PER_INTEREST)
+      await upsert(
+        selected.map((s) => ({
+          userId,
+          paperId: s.paperId,
+          interestId: s.interestId,
+          relevance: s.relevance,
+          collectedFor,
+        })),
+      )
+      total += selected.length
+      log('match', `사용자 ${userId}: 후보 ${selected.length}편`)
+    } catch (err) {
+      if (err instanceof EmbeddingDimensionError) throw err
+      failedUsers++
+      log('match', `사용자 ${userId} 처리 실패로 건너뜀: ${String(err)}`)
+    }
   }
+
+  if (failedUsers > 0) log('match', `사용자 ${failedUsers}명은 실패로 건너뛰었다 (위 로그 참고)`)
   return total
 }
 
@@ -378,7 +408,7 @@ async function main() {
   const started = Date.now()
   const { stored, newest } = await collect()
   if (newest) {
-    await setPipelineState(WATERMARK_KEY, newest.toISOString())
+    await (await loadDb()).setPipelineState(WATERMARK_KEY, newest.toISOString())
     log('fetch', `워터마크 → ${newest.toISOString()}`)
   }
   await embed()
