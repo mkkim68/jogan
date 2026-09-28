@@ -1,4 +1,4 @@
-import { EmbeddingDimensionError } from '@jogan/core'
+import { ARXIV_PAGE_SIZE, COLLECT_MAX_PER_RUN, EmbeddingDimensionError } from '@jogan/core'
 import { describe, expect, it } from 'vitest'
 import type { NewPaper } from '@jogan/db'
 import { collect, embed, type InterestListRow, type PaperListRow } from './index'
@@ -79,6 +79,54 @@ describe('collect — 워터마크는 확정 저장된 논문에서만 전진한
 
     expect(result.stored).toBe(2)
     expect(result.newest?.toISOString()).toBe('2026-09-24T18:00:00.000Z')
+  })
+})
+
+describe('collect — 한 실행 상한 도달은 정상 종료와 구분해 로그한다', () => {
+  it('COLLECT_MAX_PER_RUN에 걸려 멈추면 명시적으로 로그를 남긴다', async () => {
+    const perPage = ARXIV_PAGE_SIZE
+    const pages = Array.from({ length: COLLECT_MAX_PER_RUN / perPage }, (_, page) =>
+      feed(
+        COLLECT_MAX_PER_RUN + 1000, // 창에 남은 논문이 상한보다 많다
+        Array.from({ length: perPage }, (_, i) =>
+          entryXml(`95${String(page * perPage + i).padStart(6, '0')}`, '2026-09-20T00:00:00Z'),
+        ),
+      ),
+    )
+    const { client, calls } = queuedXmlClient(pages)
+
+    const logs: string[] = []
+    const originalLog = console.log
+    console.log = (msg?: unknown) => {
+      logs.push(String(msg))
+    }
+    let result: { stored: number; newest: Date | null }
+    try {
+      result = await collect({ client, upsert: async (rows) => rows.length, getWatermark: async () => null })
+    } finally {
+      console.log = originalLog
+    }
+
+    expect(result.stored).toBe(COLLECT_MAX_PER_RUN)
+    expect(calls()).toBe(pages.length)
+    expect(logs.some((m) => m.includes('COLLECT_MAX_PER_RUN') && m.includes('정상 종료가 아니다'))).toBe(true)
+  })
+
+  it('창을 다 훑고 끝나면 상한 로그를 남기지 않는다', async () => {
+    const { client } = queuedXmlClient([feed(1, [entryXml('9600.00001', '2026-09-20T00:00:00Z')])])
+
+    const logs: string[] = []
+    const originalLog = console.log
+    console.log = (msg?: unknown) => {
+      logs.push(String(msg))
+    }
+    try {
+      await collect({ client, upsert: async (rows) => rows.length, getWatermark: async () => null })
+    } finally {
+      console.log = originalLog
+    }
+
+    expect(logs.some((m) => m.includes('COLLECT_MAX_PER_RUN'))).toBe(false)
   })
 })
 

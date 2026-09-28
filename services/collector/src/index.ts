@@ -81,6 +81,10 @@ export async function collect(deps: CollectDeps = {}): Promise<{ stored: number;
     if (!newest || d > newest) newest = d
   }
 
+  // 루프를 빠져나온 이유. 기본값이 'max-per-run'인 것은 while 조건이 거짓이 되는 경우가
+  // 상한 도달 하나뿐이기 때문이다 — 나머지 두 경우는 break 직전에 직접 표시한다.
+  let stopReason: 'exhausted' | 'empty-page' | 'max-per-run' = 'max-per-run'
+
   while (stored < COLLECT_MAX_PER_RUN) {
     const url = buildArxivQueryUrl({ categories: ARXIV_CATEGORIES, from, to, start, pageSize: ARXIV_PAGE_SIZE })
     let xml = await fetchArxivPage(arxiv, url)
@@ -89,20 +93,27 @@ export async function collect(deps: CollectDeps = {}): Promise<{ stored: number;
 
     if (entries.length === 0) {
       // 정말로 끝까지 받았을 때만 빈 페이지를 "종료"로 믿는다.
-      if (start >= totalResults) break
+      if (start >= totalResults) {
+        stopReason = 'exhausted'
+        break
+      }
       // arXiv는 페이지네이션 도중 빈 페이지를 일시적으로 줄 수 있다고 문서화돼 있다 —
       // 같은 start로 한 번만 재시도한다 (HTTP 래퍼가 이미 요청 간 3초를 보장하므로 추가 sleep은 없다).
       log('fetch', `start=${start}에서 빈 페이지 수신 (총 ${totalResults}편 중), 같은 위치로 재시도`)
       xml = await fetchArxivPage(arxiv, url)
       ;({ entries, totalResults } = parseArxivFeed(xml))
       if (entries.length === 0) {
-        if (start >= totalResults) break
+        if (start >= totalResults) {
+          stopReason = 'exhausted'
+          break
+        }
         log(
           'fetch',
           `start=${start}/총 ${totalResults}편 — 재시도해도 빈 페이지라 이번 실행은 여기서 멈춘다. ` +
-            `이 지점부터 더 오래된 논문 최대 ${totalResults - start}편이 이번 창에서 누락됐을 수 있다 ` +
-            `(워터마크는 이미 받은 더 최신 논문 기준으로만 전진하므로 다음 실행이 자동으로 이어받지 않는다 — 수동 확인 필요)`,
+            `남은 최대 ${totalResults - start}편은 이번 실행에서 받지 못했다 ` +
+            `(오름차순 조회라 워터마크는 여기까지만 전진하고, 다음 실행이 이 지점부터 이어받는다)`,
         )
+        stopReason = 'empty-page'
         break
       }
     }
@@ -145,7 +156,19 @@ export async function collect(deps: CollectDeps = {}): Promise<{ stored: number;
     }
 
     start += ARXIV_PAGE_SIZE
-    if (start >= totalResults) break
+    if (start >= totalResults) {
+      stopReason = 'exhausted'
+      break
+    }
+  }
+
+  if (stopReason === 'max-per-run') {
+    log(
+      'fetch',
+      `한 실행 상한 COLLECT_MAX_PER_RUN=${COLLECT_MAX_PER_RUN}편에 도달해 조회를 중단한다 — ` +
+        '창을 다 훑은 정상 종료가 아니다. 오름차순 조회라 워터마크는 여기까지만 전진하고, ' +
+        '남은 구간은 다음 실행이 이어받는다.',
+    )
   }
 
   log('fetch', `저장 ${stored}편, 건너뜀 ${skipped}편`)

@@ -25,9 +25,10 @@ describe('buildArxivQueryUrl', () => {
     expect(decoded).toContain('cat:cs.AI OR cat:cs.CL')
     expect(decoded).toContain('submittedDate:[202609240000 TO 202609250000]')
   })
-  it('제출일 내림차순으로 정렬한다', () => {
+  it('제출일 오름차순으로 정렬한다 — 워터마크가 저장분의 연속성에 기대기 때문', () => {
     expect(url).toContain('sortBy=submittedDate')
-    expect(url).toContain('sortOrder=descending')
+    expect(url).toContain('sortOrder=ascending')
+    expect(url).not.toContain('sortOrder=descending')
   })
   it('페이지네이션 파라미터를 넣는다', () => {
     expect(url).toContain('start=0')

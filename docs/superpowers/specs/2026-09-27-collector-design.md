@@ -29,7 +29,7 @@ pnpm pipeline:collect
 
 ```
 ① fetch    arXiv Atom API
-           고정 카테고리 × [워터마크, now], submittedDate 내림차순 페이지네이션
+           고정 카테고리 × [워터마크, now], submittedDate 오름차순 페이지네이션
            요청 간 3초 (arXiv 정책)
              ↓ ArxivEntry[]
 ② dedupe   버전 정규화(2609.00001v2 → 2609.00001), 배치 내 최신 버전만
@@ -76,7 +76,8 @@ collector가 쓰는 키: `collector:arxiv:last_submitted_at` (ISO 8601).
 ## ① fetch — arXiv
 
 - 엔드포인트 `http://export.arxiv.org/api/query`
-- 질의: `(cat:cs.AI OR cat:cs.CL OR …) AND submittedDate:[<워터마크> TO <now>]`, `sortBy=submittedDate&sortOrder=descending`
+- 질의: `(cat:cs.AI OR cat:cs.CL OR …) AND submittedDate:[<워터마크> TO <now>]`, `sortBy=submittedDate&sortOrder=ascending`
+  - **오름차순이어야 한다.** 내림차순이면 페이지 0이 가장 최신이라, 아래 워터마크 정의("저장한 논문 중 가장 늦은 `published_at`")와 조기 종료(상한 도달·빈 페이지)가 서로 모순된다 — 아직 받지 않은 더 오래된 구간을 워터마크가 통째로 뛰어넘는다. 오름차순이면 저장분이 항상 창의 오래된 쪽부터 이어지는 연속 구간이라 정의가 구조적으로 성립한다
 - 페이지 크기 200, `start`로 페이지네이션. **요청 간 3초** — arXiv가 명시한 정책이다
 - 안전장치: 한 실행에서 최대 3000편. 초과하면 로그를 남기고 멈춘다(워터마크는 그만큼만 전진)
 - 첫 실행(워터마크 없음)은 `now - 7일`

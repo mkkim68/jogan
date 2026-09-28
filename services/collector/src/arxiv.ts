@@ -27,7 +27,13 @@ export function buildArxivQueryUrl(o: {
     ['start', String(o.start)],
     ['max_results', String(o.pageSize)],
     ['sortBy', 'submittedDate'],
-    ['sortOrder', 'descending'],
+    // **ascending은 워터마크 정확성의 전제다. 성능 취향으로 descending으로 되돌리지 말 것.**
+    // 워터마크 = "이번 실행에서 저장한 논문 중 가장 늦은 published_at"인데, 오름차순이면
+    // 저장분이 항상 창의 가장 오래된 쪽부터 이어지는 연속 구간이라 그 값이 곧 정확한 재개
+    // 지점이 된다. 내림차순이면 페이지 0이 가장 최신이라, 조기 종료(COLLECT_MAX_PER_RUN 도달,
+    // 빈 페이지, totalResults 붕괴) 시 아직 가져오지 않은 더 오래된 구간 전체를 워터마크가
+    // 뛰어넘어 영구히 누락된다 (COLLECT_BACKFILL_DAYS는 워터마크가 없을 때만 적용된다).
+    ['sortOrder', 'ascending'],
   ]
   const qs = params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')
   return `${ARXIV_API}?${qs}`
