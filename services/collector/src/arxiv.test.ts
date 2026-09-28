@@ -97,6 +97,18 @@ describe('entryToPaper', () => {
     expect(entryToPaper(null)).toBeNull()
   })
 
+  it('소속이 여럿이면 첫 소속만 쓰고 논문은 버리지 않는다', () => {
+    const entry = {
+      id: 'http://arxiv.org/abs/2609.30250v2',
+      title: '제목',
+      summary: '초록',
+      published: '2026-09-25T00:00:00Z',
+      author: [{ name: 'Jane Doe', 'arxiv:affiliation': ['KAIST', 'NAVER'] }],
+    }
+    const p = entryToPaper(entry)
+    expect(p?.authors[0]).toEqual({ name: 'Jane Doe', affiliation: 'KAIST' })
+  })
+
   it('published가 날짜로 파싱되지 않으면 null을 돌려준다', () => {
     const entry = {
       id: 'http://arxiv.org/abs/2609.30250v2',

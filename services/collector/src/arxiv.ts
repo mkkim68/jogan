@@ -61,9 +61,15 @@ export function parseArxivFeed(xml: string): { totalResults: number; entries: un
   return { totalResults: Number.isFinite(total) ? total : 0, entries }
 }
 
+/** 스칼라 텍스트 노드. fast-xml-parser는 숫자처럼 보이는 값을 number로 준다 */
+const TextNode = z.union([z.string(), z.number()]).transform(String)
+
 const AuthorNode = z.object({
-  name: z.union([z.string(), z.number()]).transform(String),
-  'arxiv:affiliation': z.union([z.string(), z.number()]).transform(String).optional(),
+  name: TextNode,
+  // 소속이 둘 이상이면 fast-xml-parser가 배열로 준다 (isArray 목록과 무관하게
+  // 같은 이름의 형제가 여럿이면 항상 배열). 첫 소속만 쓴다 — 배열을 거부하면
+  // 논문 전체가 버려진다.
+  'arxiv:affiliation': z.union([TextNode, z.array(TextNode).nonempty().transform((a) => a[0])]).optional(),
 })
 
 const EntryNode = z.object({
