@@ -44,6 +44,44 @@ describe('htmlToText', () => {
     const html = '<p>before</p><!-- <p>hidden draft number 999</p> --><p>after</p>'
     expect(htmlToText(html)).toBe('before after')
   })
+
+  it('따옴표 속성값 안의 "/>"를 self-closing으로 오인하지 않는다', () => {
+    // <script data-x="foo/>bar">의 "/>"는 속성값의 일부 문자일 뿐이다. 이걸
+    // self-closing 표시로 오인하면 진짜 스크립트 본문(여는 태그 바로 뒤)이
+    // 닫는 태그 없이 그대로 본문에 남아버린다.
+    const html = '<p>keep me</p><script data-x="foo/>bar">console.log(1)</script><p>and me too</p>'
+    expect(htmlToText(html)).toBe('keep me and me too')
+  })
+
+  it('따옴표 속성값 안의 ">"도 태그 종료로 오인하지 않는다', () => {
+    const html = '<p>keep me</p><script data-x="foo>bar">console.log(2)</script><p>and me too</p>'
+    expect(htmlToText(html)).toBe('keep me and me too')
+  })
+
+  it('따옴표 속성값 안에 숨은 "-->"로 주석을 조기 종료시키지 않는다', () => {
+    // <!-- <a href="-->fake.html">draft number 999</a> -->에서 첫 "-->"는
+    // href 속성값 안에 있는 문자일 뿐이다. 이걸 진짜 종료로 오인하면 주석이
+    // 일찍 끝나버려서 숨겨야 할 "draft number 999"가 그대로 새어나온다.
+    const html = '<p>before</p><!-- <a href="-->fake.html">draft number 999</a> --><p>after</p>'
+    expect(htmlToText(html)).toBe('before after')
+  })
+
+  it('평범한 주석은 사라지고 앞뒤 텍스트만 남는다', () => {
+    const html = '<p>before</p><!-- just a plain comment --><p>after</p>'
+    expect(htmlToText(html)).toBe('before after')
+  })
+
+  it('닫히지 않은 주석은 그 뒤를 전부 버린다', () => {
+    // 어디서 끝나는지 모르면 뒤를 전부 버린다 — 숨겨야 할 텍스트가 새어나오는 쪽이
+    // 본문 뒷부분이 잘리는 쪽보다 훨씬 나쁘다.
+    const html = '<p>keep me</p><!-- 이 주석은 닫히지 않는다 <p>이건 살아남으면 안 된다</p>'
+    expect(htmlToText(html)).toBe('keep me')
+  })
+
+  it('닫히지 않은 <script>는 그 뒤를 전부 버린다', () => {
+    const html = '<p>keep me</p><script>var x = 1; // 이 스크립트는 닫히지 않는다'
+    expect(htmlToText(html)).toBe('keep me')
+  })
 })
 
 describe('fetchFullText', () => {
