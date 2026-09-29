@@ -77,3 +77,16 @@ export const CANDIDATES_PER_USER = 150
 export const VOYAGE_MODEL = 'voyage-4'
 /** Voyage가 한 요청에 받는 최대 입력 수 */
 export const VOYAGE_BATCH_SIZE = 128
+
+/** ③b(본문 정밀 평가)로 넘길 편수. **첫 실행 결과를 보고 조정할 값이다** — 하루 2편 배달에 여유를 둔 추측값 */
+export const TRIAGE_DEEP_CUT = 6
+/** 이보다 짧은 초록은 메타데이터 부실로 본다 (글자 수) */
+export const STAGE1_MIN_ABSTRACT = 200
+/** OpenAlex polite pool 기준 요청 간격 */
+export const OPENALEX_MIN_INTERVAL_MS = 100
+/** 한 실행에서 평가할 논문 수 상한 */
+export const EVAL_MAX_PER_RUN = 200
+/** 중복 실행 가드. collector(610_927)와 달라야 한다 */
+export const EVALUATOR_LOCK_KEY = 610_928
+export const OPENALEX_API = 'https://api.openalex.org/works'
+export const CROSSREF_API = 'https://api.crossref.org/works'

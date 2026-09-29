@@ -9,15 +9,16 @@ import {
   COLLECT_BACKFILL_DAYS,
   COLLECT_MAX_PER_RUN,
   COLLECT_WINDOW_DAYS,
+  createHttpClient,
   EmbeddingDimensionError,
   RELEVANCE_FLOOR,
   VOYAGE_BATCH_SIZE,
+  type HttpClient,
 } from '@jogan/core'
 import type { CandidateRow, NewPaper } from '@jogan/db'
 import { z } from 'zod'
 import { buildArxivQueryUrl, dedupeByArxivId, entryToPaper, fetchArxivPage, parseArxivFeed, stripVersion } from './arxiv'
 import { embedTexts, paperEmbeddingInput } from './embed'
-import { createHttpClient, type HttpClient } from './http'
 import { selectBestPerPaper, type InterestMatches } from './match'
 
 // @jogan/db를 타입으로만 import하게 되면서(기본 구현은 호출 시점 동적 import) 그 부작용으로

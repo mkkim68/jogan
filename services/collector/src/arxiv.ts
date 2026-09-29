@@ -1,7 +1,7 @@
 import { XMLParser } from 'fast-xml-parser'
 import { z } from 'zod'
 import type { NewPaper } from '@jogan/db'
-import type { HttpClient } from './http'
+import type { HttpClient } from '@jogan/core'
 
 const ARXIV_API = 'https://export.arxiv.org/api/query'
 

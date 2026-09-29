@@ -1,9 +1,8 @@
 import { config } from 'dotenv'
 import { describe, expect, it } from 'vitest'
-import { ARXIV_CATEGORIES, ARXIV_MIN_INTERVAL_MS, COLLECT_BACKFILL_DAYS } from '@jogan/core'
+import { ARXIV_CATEGORIES, ARXIV_MIN_INTERVAL_MS, COLLECT_BACKFILL_DAYS, createHttpClient } from '@jogan/core'
 import { buildArxivQueryUrl, entryToPaper, fetchArxivPage, parseArxivFeed } from './arxiv'
 import { embedTexts } from './embed'
-import { createHttpClient } from './http'
 
 config({ path: ['.env', '../../.env'], quiet: true })
 

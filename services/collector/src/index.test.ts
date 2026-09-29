@@ -5,12 +5,12 @@ import {
   EmbeddingDimensionError,
   RELEVANCE_FLOOR,
   VOYAGE_BATCH_SIZE,
+  type HttpClient,
 } from '@jogan/core'
 import { describe, expect, it } from 'vitest'
 import type { CandidateRow, NewPaper } from '@jogan/db'
 import { collect, embed, match, type InterestListRow, type PaperListRow } from './index'
 import { paperEmbeddingInput } from './embed'
-import type { HttpClient } from './http'
 
 /** 최소한의 유효한 entry 하나짜리 arXiv Atom 피드. `noUncheckedIndexedAccess` 때문에
  * 응답 큐 접근은 항상 `undefined` 가드를 거친다 (캐스팅 없음). */
