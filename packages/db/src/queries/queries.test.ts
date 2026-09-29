@@ -183,7 +183,11 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
       expect(high?.interestId).toBe(interestB.id)
       expect(high?.collectedFor).toBe('2026-09-29')
     } finally {
-      await db.delete(paperCandidates).where(eq(paperCandidates.userId, userId))
+      // userId만으로 지우면 이 사용자의 실제 후보 행 전체(파이프라인이 만든 것 포함)가
+      // 함께 지워진다. 이 테스트가 만든 paper.id 행 하나만 지운다.
+      await db
+        .delete(paperCandidates)
+        .where(and(eq(paperCandidates.userId, userId), eq(paperCandidates.paperId, paper.id)))
     }
   })
 
