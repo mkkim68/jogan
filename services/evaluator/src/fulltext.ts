@@ -6,7 +6,15 @@ const ENTITIES: Record<string, string> = {
 
 /** arXiv HTML에서 읽을 수 있는 텍스트만 남긴다 */
 export function htmlToText(html: string): string {
-  const withoutScripts = html
+  // 주석은 먼저, 통째로 지운다. 주석 안에 <p>나 수치 같은 마크업/텍스트가 있어도
+  // 이건 의도적으로 지운 내용이라 결과 텍스트에 새어나오면 안 된다 — 이 텍스트가
+  // 나중에 verify.ts가 "원문"으로 믿고 수치를 대조하는 그 문자열이기도 하다.
+  const withoutComments = html.replace(/<!--[\s\S]*?-->/g, ' ')
+  // <script src="x.js"/> 같은 self-closing 태그는 닫는 태그가 없다. 쌍으로만
+  // 매칭하는 정규식을 먼저 돌리면 이 지점부터 "다음에 나오는 아무 </script>"까지를
+  // 전부 삼켜버려 그 사이 진짜 본문이 사라진다 — self-closing 형태를 먼저 제거한다.
+  const withoutSelfClosing = withoutComments.replace(/<(script|style)\b[^>]*\/>/gi, ' ')
+  const withoutScripts = withoutSelfClosing
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
     .replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, ' ')

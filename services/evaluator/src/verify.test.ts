@@ -31,6 +31,31 @@ describe('verifyAgainstSource', () => {
   it('소수점 표기가 같아야 한다', () => {
     expect(verifyAgainstSource('87.50%를 기록했다', source)).toBe(false)
   })
+
+  it('조작된 숫자가 원문의 더 큰 숫자에 부분 문자열로 들어있어도 막는다', () => {
+    const bigSource = 'We collected 120 samples, released in 2012. Accuracy reaches 87.5%.'
+    expect(verifyAgainstSource('12개를 수집했다', bigSource)).toBe(false)
+    expect(verifyAgainstSource('87개를 수집했다', bigSource)).toBe(false)
+    // 원문에 실제로 있는 숫자는 여전히 통과해야 한다 — 부분 문자열만 막는 것이지
+    // 전부 막는 게 아니다.
+    expect(verifyAgainstSource('2012년 논문이다', bigSource)).toBe(true)
+    expect(verifyAgainstSource('120개를 수집했다', bigSource)).toBe(true)
+  })
+
+  it('퍼센트 문장의 숫자가 원문 소수의 일부여도 막는다', () => {
+    expect(verifyAgainstSource('유의수준 5%였다', 'The p-value was 0.05.')).toBe(false)
+  })
+
+  it('쉼표 표기가 달라도 같은 숫자면 통과한다', () => {
+    expect(verifyAgainstSource('1,234명을 대상으로 했다', '1234 participants were included.')).toBe(true)
+  })
+
+  it('전각 숫자도 검사한다 — 그냥 통과시키지 않는다', () => {
+    // ４０ = 전각 40. \d는 ASCII 전용이라 정규화하지 않으면 수치가 없는 문장으로
+    // 취급되어 무검증으로 통과한다.
+    expect(verifyAgainstSource('４０개 데이터셋에서 평가했다', source)).toBe(false)
+    expect(verifyAgainstSource('１２개 데이터셋에서 평가했다', source)).toBe(true)
+  })
 })
 
 describe('keepVerifiedEvidence', () => {
