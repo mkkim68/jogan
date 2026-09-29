@@ -4,7 +4,7 @@ import { deepEval, loadPrompt, triage } from './stage3'
 const paper = { title: 'A Study', abstract: 'We evaluate on 12 datasets.' }
 const source = 'We evaluate on 12 datasets with 3 seeds.'
 
-const deepJson = JSON.stringify({
+const deepPayload = {
   reproducibility: { value: 0.8, reason: '코드 저장소가 명시돼 있다' },
   design: { value: 0.6, reason: '12개 데이터셋에서 평가했다' },
   statistics: { value: null, reason: '신뢰구간 보고를 찾지 못했다' },
@@ -15,7 +15,20 @@ const deepJson = JSON.stringify({
     { verdict: 'pass', text: '12개 데이터셋에서 검증했다' },
     { verdict: 'pass', text: '40개 데이터셋에서 검증했다' },
   ],
-})
+}
+const deepJson = JSON.stringify(deepPayload)
+
+/**
+ * "전부 버려지면 전부 null" 테스트 전용 픽스처.
+ * `deepPayload`는 statistics.value가 이미 null이라, statistics 필드만 가드를
+ * 빼먹는 회귀는 값 비교로 잡히지 않는다(null과 null이 우연히 같아진다).
+ * 다섯 필드 모두를 값 있는 상태로 채워서, 다섯 필드 각각의 가드가 실제로
+ * 동작하는지 빠짐없이 검증한다.
+ */
+const allScoredPayload = {
+  ...deepPayload,
+  statistics: { value: 0.3, reason: '신뢰구간을 일부 보고했다' },
+}
 
 describe('loadPrompt', () => {
   it('프롬프트를 파일에서 읽는다 (코드에 인라인하지 않는다)', () => {
@@ -75,11 +88,15 @@ describe('deepEval', () => {
   it('근거 문장이 전부 버려지면 stage3 점수를 전부 null로 떨어뜨린다', async () => {
     const llm = async () =>
       JSON.stringify({
-        ...JSON.parse(deepJson),
+        ...allScoredPayload,
         evidence: [{ verdict: 'pass', text: '99개 데이터셋에서 검증했다' }],
       })
     const r = await deepEval(llm, paper, source)
     expect(r?.stage3.reproducibility.value).toBeNull()
+    expect(r?.stage3.design.value).toBeNull()
+    expect(r?.stage3.statistics.value).toBeNull()
+    expect(r?.stage3.claimVsEvidence.value).toBeNull()
+    expect(r?.stage3.limitations.value).toBeNull()
     expect(r?.evidence).toEqual([])
   })
 
