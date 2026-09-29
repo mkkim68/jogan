@@ -3,7 +3,7 @@ import {
   COLLECT_MAX_PER_RUN,
   EMBEDDING_DIM,
   EmbeddingDimensionError,
-  RELEVANCE_THRESHOLD,
+  RELEVANCE_FLOOR,
   VOYAGE_BATCH_SIZE,
 } from '@jogan/core'
 import { describe, expect, it } from 'vitest'
@@ -605,7 +605,7 @@ describe('match — 사용자 단위 격리', () => {
       listInterests: async () => [{ id: 'i1', embedding: interestVec }],
       matchPapers: async () => [
         { paperId: 'high', relevance: 0.9 },
-        { paperId: 'low', relevance: RELEVANCE_THRESHOLD - 0.01 },
+        { paperId: 'low', relevance: RELEVANCE_FLOOR - 0.01 },
       ],
       upsertCandidates: async (rows) => {
         upserted.push(...rows)
