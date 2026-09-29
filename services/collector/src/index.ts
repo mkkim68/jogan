@@ -83,7 +83,9 @@ export async function collect(
 ): Promise<{ stored: number; newest: Date | null; hitMaxPerRun: boolean }> {
   const arxiv =
     deps.client ??
-    createHttpClient({ minIntervalMs: ARXIV_MIN_INTERVAL_MS, maxRetries: 3, timeoutMs: 30_000 }, {})
+    // 90초: arXiv는 start가 커질수록 응답이 느려진다. 30초로 두니 1400번째 결과 부근에서
+    // 4번 연속 타임아웃으로 실행이 죽었다 (실측).
+    createHttpClient({ minIntervalMs: ARXIV_MIN_INTERVAL_MS, maxRetries: 3, timeoutMs: 90_000 }, {})
   const upsert = deps.upsert ?? (async (rows: NewPaper[]) => (await loadDb()).upsertArxivPapers(rows))
   const getWatermark = deps.getWatermark ?? (async (key: string) => (await loadDb()).getPipelineState(key))
 
