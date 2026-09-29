@@ -82,6 +82,14 @@ describe('htmlToText', () => {
     const html = '<p>keep me</p><script>var x = 1; // 이 스크립트는 닫히지 않는다'
     expect(htmlToText(html)).toBe('keep me')
   })
+
+  it('주석 속 따옴표 짝이 안 맞아도 첫 -->에서 끝나고 뒤 문단은 살아남는다', () => {
+    // y='6 is odd 뒤에 닫는 따옴표가 없다 — 보호 구간이 열린 채 끝까지 안 닫힌다.
+    // 이걸 "종료를 못 찾았다"로 처리해 뒤를 전부 버리면, 진짜 있는 유일한 -->
+    // 바로 뒤의 멀쩡한 문단(및 그 안의 수치 n=45)까지 통째로 사라진다.
+    const html = "<p>keep me</p><!-- x=5, y='6 is odd --> <p>this real paragraph should survive n=45</p>"
+    expect(htmlToText(html)).toBe('keep me this real paragraph should survive n=45')
+  })
 })
 
 describe('fetchFullText', () => {

@@ -31,15 +31,11 @@ function findTagEnd(html: string, start: number): number {
 }
 
 /**
- * 주석 내용 중 실제 종료 시퀀스 `-->`가 시작하는 인덱스를 찾는다.
- * `="` 또는 `='` 바로 뒤에 이어지는 구간은 속성값처럼 보호해서, 그 안에 박힌
- * `-->`는 종료로 보지 않는다 — 그렇지 않으면 `<a href="-->fake.html">`처럼
- * 주석 속에 끼워넣은 가짜 태그가 주석을 조기 종료시켜, 뒤에 숨겨야 할 텍스트가
- * 새어나온다. 반대로 `=` 없이 그냥 나온 따옴표(`don't`의 어포스트로피 같은 것)는
- * 보호 구간으로 취급하지 않는다 — 그렇게 하면 평범한 문장 하나가 뒤 전체를
- * 집어삼켜버린다. 못 찾으면(끝까지 `-->`가 없으면) -1.
+ * `findCommentEnd`의 보호 구간 규칙만 적용해 종료 지점을 찾는다. 열린 보호
+ * 구간(따옴표)이 끝까지 안 닫히면 못 찾은 것으로 -1을 반환한다 — 이 경우
+ * `findCommentEnd`가 아래에서 실제 HTML처럼 첫 `-->`로 대체한다.
  */
-function findCommentEnd(html: string, contentStart: number): number {
+function findUnprotectedCommentEnd(html: string, contentStart: number): number {
   let i = contentStart
   let quote: string | null = null
   while (i < html.length) {
@@ -58,6 +54,27 @@ function findCommentEnd(html: string, contentStart: number): number {
     i++
   }
   return -1
+}
+
+/**
+ * 주석 내용 중 실제 종료 시퀀스 `-->`가 시작하는 인덱스를 찾는다.
+ * `="` 또는 `='` 바로 뒤에 이어지는 구간은 속성값처럼 보호해서, 그 안에 박힌
+ * `-->`는 종료로 보지 않는다 — 그렇지 않으면 `<a href="-->fake.html">`처럼
+ * 주석 속에 끼워넣은 가짜 태그가 주석을 조기 종료시켜, 뒤에 숨겨야 할 텍스트가
+ * 새어나온다. 반대로 `=` 없이 그냥 나온 따옴표(`don't`의 어포스트로피 같은 것)는
+ * 보호 구간으로 취급하지 않는다 — 그렇게 하면 평범한 문장 하나가 뒤 전체를
+ * 집어삼켜버린다.
+ *
+ * 보호 구간이 열린 채로 끝까지 안 닫히면(예: `y='6 is odd -->` — 따옴표 짝이
+ * 없다) 진짜 종료를 영영 못 찾은 것으로 치지 않는다. 대신 실제 HTML처럼 첫
+ * `-->`를 종료로 인정한다 — 안 그러면 닫히지 않은 따옴표 하나가 뒤에 오는
+ * 멀쩡한 문단까지 전부 삼켜버린다(과잉 스트립). `-->` 자체가 끝까지 하나도
+ * 없을 때만 진짜로 못 찾은 것이라 -1을 반환한다.
+ */
+function findCommentEnd(html: string, contentStart: number): number {
+  const unprotected = findUnprotectedCommentEnd(html, contentStart)
+  if (unprotected !== -1) return unprotected
+  return html.indexOf('-->', contentStart)
 }
 
 /** `<div ...>`, `</script>` 같은 태그 텍스트에서 태그 이름만 소문자로 뽑는다 */

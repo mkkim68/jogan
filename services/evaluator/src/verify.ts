@@ -37,6 +37,11 @@ function numbersIn(text: string): string[] {
  * 이지 사실 주장이 아니다.
  *
  * 표기가 다르면 막는다(87.5 vs 87.50). 느슨하게 맞추면 검사의 의미가 없다.
+ *
+ * **알려진 한계**: ASCII 숫자와 전각 숫자(０~９)만 정규화한다. 아랍-인도 숫자
+ * (예: ٤٠)나 데바나가리 숫자(예: ४०) 같은 다른 문자 체계의 숫자는 감지하지
+ * 못하고, 그런 숫자가 든 문장은 "수치가 없는 문장"으로 오인되어 무검증으로
+ * 통과한다. 지금은 고치지 않고 알려진 구멍으로 남겨둔다.
  */
 export function verifyAgainstSource(sentence: string, source: string): boolean {
   const sentenceNumbers = numbersIn(sentence)
