@@ -1,3 +1,4 @@
+export * from './assessments'
 export * from './mappers'
 export * from './columns'
 export * from './briefs'

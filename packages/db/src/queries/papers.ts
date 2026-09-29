@@ -79,6 +79,7 @@ export type NewPaper = {
   pdfUrl: string | null
   codeUrl: string | null
   openAccess: boolean
+  categories?: string[]
 }
 
 /**
@@ -86,12 +87,12 @@ export type NewPaper = {
  * 되돌린다** — 낡은 벡터로 매칭하면 안 된다.
  *
  * 갱신 대상은 "arXiv 재수집이 다시 알려주는 값"만이다: title·abstract·publishedAt·doi·
- * pdfUrl·authors는 arXiv 쪽에서 새 버전이 나올 때마다 바뀔 수 있는 값이라 매번 덮어쓴다.
- * 반대로 venue·codeUrl·openAccess·mergedInto는 **뒷단계가 채워 넣는 값**이라 여기서
- * 건드리지 않는다 — venue는 출판본이 발견되면 바뀌고, codeUrl은 본문에서 찾아 채워지고,
- * mergedInto는 프리프린트·출판본 병합 결과다. arXiv 재수집이 이 컬럼들을 초기값(null/false)
- * 으로 되돌리면 뒷단계가 이미 알아낸 정보를 잃는다. (다음 수집기를 arXiv 패턴을 베껴
- * 만들 때도 이 구분을 그대로 지켜야 한다.)
+ * pdfUrl·authors·categories는 arXiv 쪽에서 새 버전이 나올 때마다 바뀔 수 있는 값이라
+ * 매번 덮어쓴다. 반대로 venue·codeUrl·openAccess·mergedInto는 **뒷단계가 채워 넣는 값**이라
+ * 여기서 건드리지 않는다 — venue는 출판본이 발견되면 바뀌고, codeUrl은 본문에서 찾아
+ * 채워지고, mergedInto는 프리프린트·출판본 병합 결과다. arXiv 재수집이 이 컬럼들을
+ * 초기값(null/false)으로 되돌리면 뒷단계가 이미 알아낸 정보를 잃는다. (다음 수집기를
+ * arXiv 패턴을 베껴 만들 때도 이 구분을 그대로 지켜야 한다.)
  */
 export async function upsertArxivPapers(rows: NewPaper[]): Promise<number> {
   if (rows.length === 0) return 0
@@ -107,6 +108,7 @@ export async function upsertArxivPapers(rows: NewPaper[]): Promise<number> {
         doi: sql`excluded.doi`,
         pdfUrl: sql`excluded.pdf_url`,
         authors: sql`excluded.authors`,
+        categories: sql`excluded.categories`,
         embedding: sql`case when ${papers.abstract} is distinct from excluded.abstract
                             then null else ${papers.embedding} end`,
       },

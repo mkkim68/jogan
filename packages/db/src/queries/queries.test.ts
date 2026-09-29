@@ -421,6 +421,84 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
     const restored = await getSettings(userId)
     expect(restored).toEqual(original)
   })
+
+  it('아직 평가되지 않은 후보 논문만 가져온다', async () => {
+    const {
+      listUnassessedCandidatePapers, upsertAssessment, upsertCandidates, db, assessments, papers, paperCandidates,
+    } = await import('../index')
+    const { and, eq, notInArray } = await import('drizzle-orm')
+
+    // 로컬 DB의 paper_candidates는 이 테스트가 스스로 채우기 전까지 비어 있을 수 있다.
+    // 기존 후보·평가 행은 절대 건드리지 않고, 아직 평가되지 않은 실제 논문 하나를 골라
+    // 이 테스트만의 후보 행을 만든다.
+    const assessedIds = (await db.select({ paperId: assessments.paperId }).from(assessments)).map((r) => r.paperId)
+    const candidatePaper = await db.query.papers.findFirst({
+      where: assessedIds.length > 0 ? notInArray(papers.id, assessedIds) : undefined,
+    })
+    expect(candidatePaper).toBeDefined()
+    if (!candidatePaper) return
+    expect(candidatePaper.title.length).toBeGreaterThan(0)
+
+    await upsertCandidates([
+      { userId, paperId: candidatePaper.id, interestId: null, relevance: 0.5, collectedFor: '2026-09-29' },
+    ])
+
+    try {
+      const before = await listUnassessedCandidatePapers(2000)
+      expect(before.map((p) => p.id)).toContain(candidatePaper.id)
+
+      await upsertAssessment({
+        paperId: candidatePaper.id,
+        track: 'notable',
+        field: 'cs',
+        stage1: { passed: true, retracted: false, predatoryVenue: false, paperMillSignals: [] },
+        stage2: { venueTier: null, reviewStatus: 'preprint', reviewScore: null, authorTrackRecord: 0 },
+        stage3: null,
+        stage4: null,
+        evidence: [{ stage: 1, verdict: 'pass', text: '철회 기록이 없다' }],
+        caveats: [],
+      })
+      const after = await listUnassessedCandidatePapers(2000)
+      expect(after.map((p) => p.id)).not.toContain(candidatePaper.id)
+    } finally {
+      await db.delete(assessments).where(eq(assessments.paperId, candidatePaper.id))
+      await db
+        .delete(paperCandidates)
+        .where(and(eq(paperCandidates.userId, userId), eq(paperCandidates.paperId, candidatePaper.id)))
+    }
+  })
+
+  it('같은 논문을 다시 upsert하면 덮어쓴다', async () => {
+    const { upsertAssessment, db, assessments, papers } = await import('../index')
+    const { eq, notInArray } = await import('drizzle-orm')
+
+    const assessedIds = (await db.select({ paperId: assessments.paperId }).from(assessments)).map((r) => r.paperId)
+    const paper = await db.query.papers.findFirst({
+      where: assessedIds.length > 0 ? notInArray(papers.id, assessedIds) : undefined,
+    })
+    expect(paper).toBeDefined()
+    if (!paper) return
+
+    const row = {
+      paperId: paper.id,
+      track: 'notable' as const,
+      field: 'cs' as const,
+      stage1: { passed: true, retracted: false, predatoryVenue: false, paperMillSignals: [] },
+      stage2: { venueTier: null, reviewStatus: 'preprint', reviewScore: null, authorTrackRecord: 0 },
+      stage3: null,
+      stage4: null,
+      evidence: [{ stage: 1 as const, verdict: 'pass' as const, text: '처음' }],
+      caveats: [],
+    }
+    try {
+      await upsertAssessment(row)
+      await upsertAssessment({ ...row, evidence: [{ stage: 1, verdict: 'caution', text: '나중' }] })
+      const saved = await db.query.assessments.findFirst({ where: eq(assessments.paperId, paper.id) })
+      expect(saved?.evidence).toEqual([{ stage: 1, verdict: 'caution', text: '나중' }])
+    } finally {
+      await db.delete(assessments).where(eq(assessments.paperId, paper.id))
+    }
+  })
 })
 
 afterAll(async () => {

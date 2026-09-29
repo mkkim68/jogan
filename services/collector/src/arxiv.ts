@@ -78,6 +78,8 @@ const AuthorNode = z.object({
   'arxiv:affiliation': z.union([TextNode, z.array(TextNode).nonempty().transform((a) => a[0])]).optional(),
 })
 
+const CategoryNode = z.object({ '@_term': z.string() })
+
 const EntryNode = z.object({
   id: z.string(),
   title: z.union([z.string(), z.number()]).transform(String),
@@ -85,6 +87,7 @@ const EntryNode = z.object({
   published: z.string(),
   author: z.array(AuthorNode).min(1),
   'arxiv:doi': z.union([z.string(), z.number()]).transform(String).optional(),
+  category: z.array(CategoryNode).optional(),
 })
 
 /** 매핑할 수 없는 엔트리는 null. 호출부가 로그를 남기고 그 한 편만 건너뛴다 */
@@ -96,6 +99,8 @@ export function entryToPaper(entry: unknown): NewPaper | null {
   if (!arxivId) return null
   const publishedAt = new Date(e.published)
   if (Number.isNaN(publishedAt.getTime())) return null
+
+  const categories = e.category?.map((c) => c['@_term'])
 
   return {
     doi: e['arxiv:doi'] ?? null,
@@ -112,6 +117,7 @@ export function entryToPaper(entry: unknown): NewPaper | null {
     pdfUrl: `https://arxiv.org/pdf/${arxivId}`,
     codeUrl: null,
     openAccess: true,
+    ...(categories ? { categories } : {}),
   }
 }
 
