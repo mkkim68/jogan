@@ -1,3 +1,4 @@
+import { STAGE1_MIN_ABSTRACT } from '@jogan/core'
 import { describe, expect, it } from 'vitest'
 import { runStage1 } from './stage1'
 
@@ -16,14 +17,18 @@ describe('runStage1', () => {
     expect(r.stage1.passed).toBe(true)
   })
 
-  it('DOI가 없으면 철회 확인 불가를 caveat으로 남긴다', () => {
-    const r = runStage1(ok)
-    expect(r.caveats.join(' ')).toContain('철회')
+  // 철회 조회(Crossref)는 구현되어 있지 않다 — DOI가 있어도 없어도 확인한 적이 없으므로
+  // caveat은 DOI 유무와 무관하게 항상 남아야 한다 (절대 규칙 2: 확인 안 한 걸 확인했다고 적지 않는다).
+  it('철회 여부를 확인하지 않았다는 caveat을 DOI 유무와 무관하게 항상 남긴다', () => {
+    const withoutDoi = runStage1(ok)
+    const withDoi = runStage1({ ...ok, doi: '10.1234/abcd' })
+    expect(withoutDoi.caveats.join(' ')).toContain('철회')
+    expect(withDoi.caveats.join(' ')).toContain('철회')
   })
 
-  it('DOI가 있으면 철회 확인 불가 caveat이 없다', () => {
-    const r = runStage1({ ...ok, doi: '10.1234/abcd' })
-    expect(r.caveats.join(' ')).not.toContain('철회')
+  it('초록이 정확히 최소 길이면 통과한다', () => {
+    const r = runStage1({ ...ok, abstract: 'x'.repeat(STAGE1_MIN_ABSTRACT) })
+    expect(r.stage1.passed).toBe(true)
   })
 
   it('초록이 너무 짧으면 탈락한다', () => {

@@ -15,9 +15,11 @@ export type Stage1Result = { stage1: Stage1; evidence: Evidence[]; caveats: stri
  *
  * PRD §3.2 ①의 "메타데이터 부실 — DOI 없음"은 뺐다. arXiv 논문의 98%가 DOI가 없는데,
  * 프리프린트는 저널에 실리기 전까지 DOI가 없는 게 정상이라 부실이 아니라 정의다.
- * 대신 철회 조회를 못 한다는 사실을 caveat으로 남긴다.
  *
- * 철회 자체의 조회(Crossref)는 이 함수 밖에서 한다 — 여기는 순수 함수로 둔다.
+ * 철회 조회(Crossref)는 아직 구현하지 않았다 — DOI가 있어도 없어도 이 함수는 철회
+ * 여부를 확인하지 않는다. `stage1.retracted`는 항상 false이고, 이것이 "철회 아님을
+ * 확인했다"는 뜻이 아니라 "확인한 적이 없다"는 뜻임을 caveat으로 매번 남긴다
+ * (CLAUDE.md 절대 규칙 2 — 확인하지 않은 것을 확인했다고 적지 않는다).
  */
 export function runStage1(paper: Stage1Input): Stage1Result {
   const evidence: Evidence[] = []
@@ -50,9 +52,8 @@ export function runStage1(paper: Stage1Input): Stage1Result {
     evidence.push({ stage: 1, verdict: 'pass', text: '메타데이터가 갖춰져 있고 동의어 치환 흔적이 없다' })
   }
 
-  if (paper.doi === null) {
-    caveats.push('DOI가 없어 철회 여부를 조회하지 못했다 (프리프린트에서는 정상이다)')
-  }
+  // DOI 유무와 무관하다 — Crossref 조회 자체가 구현되어 있지 않아 어느 쪽도 확인하지 못했다.
+  caveats.push('철회 여부를 확인하지 않았다 — Crossref 조회가 아직 구현되지 않았다')
 
   return {
     stage1: { passed, retracted: false, predatoryVenue: false, paperMillSignals },
