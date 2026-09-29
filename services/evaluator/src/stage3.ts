@@ -45,7 +45,15 @@ const DeepOut = z.object({
 
 export type DeepResult = { stage3: Stage3; evidence: Evidence[]; caveats: string[] }
 
-const BLANK: Score = { value: null, reason: '근거 문장이 원문 대조를 통과하지 못해 점수를 남기지 않는다' }
+/** 본문을 받지 못해 애초에 검증할 원문이 초록뿐이다 — 모델이 뭐라고 답하든 채점하지 않는다 */
+const BLANK_NO_BODY: Score = { value: null, reason: '본문을 확인하지 못해 점수를 남기지 않는다' }
+/** 모델이 근거 문장을 하나도 내지 않았다 — "냈는데 실패"와는 다른 상황이라 이유도 다르게 적는다 */
+const BLANK_NO_EVIDENCE: Score = { value: null, reason: '근거 문장이 제시되지 않아 점수를 남기지 않는다' }
+/** 근거 문장을 냈지만 전부 원문 대조에서 걸러졌다 */
+const BLANK_VERIFICATION_FAILED: Score = {
+  value: null,
+  reason: '근거 문장이 원문 대조를 통과하지 못해 점수를 남기지 않는다',
+}
 
 /**
  * 본문(없으면 초록)을 근거로 루브릭 5항목을 채운다.
@@ -53,14 +61,22 @@ const BLANK: Score = { value: null, reason: '근거 문장이 원문 대조를 �
  * 절대 규칙 1: LLM이 돌려준 근거 문장의 수치를 원문과 대조하고, 실패한 문장은 버린다.
  * 문장이 전부 버려지면 그 논문의 ③단계 점수를 신뢰할 수 없으므로 **전부 null로 떨어뜨린다** —
  * 검증되지 않은 근거 위에 점수만 남기는 것이 절대 규칙 2가 금지하는 바로 그것이다.
+ *
+ * 절대 규칙 2 (본문 없음): 본문을 못 받았을 때 "초록만 봤다"고 프롬프트에 적어 보내는 것은
+ * 모델에 대한 **요청**일 뿐 **보장**이 아니다. 근거 문장 하나가 (우연히) 검증을 통과하면
+ * `verified`가 true가 되어 모델이 준 5개 점수가 그대로 새어나갈 수 있다 — 본문을 읽지 않고
+ * 내린 판단을 "봤다"고 기록하는 셈이라 절대 규칙 2 위반이다. 그래서 본문이 없으면 근거
+ * 문장의 검증 결과와 무관하게 무조건 5개 항목을 전부 null로 떨어뜨린다. 근거 문장 자체는
+ * (초록을 원문 삼아) 검증을 거쳐 그대로 보여준다 — 그건 "검증된 사실 문장"으로서 여전히 정직하다.
  */
 export async function deepEval(
   llm: LlmFn,
   paper: { title: string; abstract: string },
   fullText: string | null,
 ): Promise<DeepResult | null> {
+  const noBody = fullText === null
   const body = fullText ?? paper.abstract
-  const header = fullText === null ? '(본문을 받지 못했다. 초록만 주어진다.)\n\n' : ''
+  const header = noBody ? '(본문을 받지 못했다. 초록만 주어진다.)\n\n' : ''
   const raw = await llm(loadPrompt('deep-eval'), `${header}# ${paper.title}\n\n${body}`)
   const parsed = DeepOut.safeParse(extractJson(raw))
   if (!parsed.success) return null
@@ -71,16 +87,23 @@ export async function deepEval(
   const dropped = proposed.length - kept.length
 
   const caveats = [...d.caveats]
-  if (dropped > 0) caveats.push(`근거 문장 ${dropped}개가 원문과 대조에 실패해 버렸다`)
-  if (fullText === null) caveats.push('본문을 받지 못해 초록만으로 평가했다')
+  if (proposed.length === 0) {
+    caveats.push('근거 문장이 제시되지 않아 점수를 매기지 않았다')
+  } else if (dropped > 0) {
+    caveats.push(`근거 문장 ${dropped}개가 원문과 대조에 실패해 버렸다`)
+  }
+  if (noBody) caveats.push('본문을 받지 못해 초록만으로 평가했다')
 
-  const verified = kept.length > 0
+  // 본문이 없으면 근거 검증 결과와 무관하게 무조건 blank — "검증 통과"가 "본문을 읽었다"를
+  // 대신할 수 없다. 본문이 있을 때만 검증 통과 여부(kept.length > 0)로 채점 여부를 가른다.
+  const blank = noBody ? BLANK_NO_BODY : proposed.length === 0 ? BLANK_NO_EVIDENCE : BLANK_VERIFICATION_FAILED
+  const scored = !noBody && kept.length > 0
   const stage3: Stage3 = {
-    reproducibility: verified ? d.reproducibility : BLANK,
-    design: verified ? d.design : BLANK,
-    statistics: verified ? d.statistics : BLANK,
-    claimVsEvidence: verified ? d.claimVsEvidence : BLANK,
-    limitations: verified ? d.limitations : BLANK,
+    reproducibility: scored ? d.reproducibility : blank,
+    design: scored ? d.design : blank,
+    statistics: scored ? d.statistics : blank,
+    claimVsEvidence: scored ? d.claimVsEvidence : blank,
+    limitations: scored ? d.limitations : blank,
     preregistered: null,
     studyDesign: null,
   }

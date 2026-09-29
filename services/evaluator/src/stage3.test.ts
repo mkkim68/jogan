@@ -85,6 +85,18 @@ describe('deepEval', () => {
     expect(r?.caveats.join(' ')).toContain('원문과 대조')
   })
 
+  // fix round 2 — dropped(0 - 0)는 0이라 "대조 실패" caveat이 안 뜬다. "안 냈다"와
+  // "냈는데 걸러졌다"는 다른 상황이므로 다른 문구로 남겨야 한다
+  it('근거 문장을 아예 안 내면, 걸러졌다는 caveat이 아니라 안 냈다는 caveat을 남긴다', async () => {
+    const llm = async () => JSON.stringify({ ...deepPayload, evidence: [] })
+    const r = await deepEval(llm, paper, source)
+    const joined = r?.caveats.join(' ') ?? ''
+    expect(joined).toContain('제시되지 않아')
+    expect(joined).not.toContain('대조에 실패')
+    expect(r?.stage3.reproducibility.value).toBeNull()
+    expect(r?.stage3.reproducibility.reason).not.toContain('통과하지 못해')
+  })
+
   it('근거 문장이 전부 버려지면 stage3 점수를 전부 null로 떨어뜨린다', async () => {
     const llm = async () =>
       JSON.stringify({
@@ -109,6 +121,28 @@ describe('deepEval', () => {
   it('본문이 없으면 초록을 대조 원문으로 쓴다', async () => {
     const llm = async () => deepJson
     const r = await deepEval(llm, { ...paper, abstract: 'We evaluate on 12 datasets.' }, null)
+    expect(r?.evidence.map((e) => e.text)).toEqual(['12개 데이터셋에서 검증했다'])
+  })
+
+  // fix round 2 — 절대 규칙 2. 근거 문장 하나가 초록 대조를 통과해도(kept.length > 0),
+  // 본문을 못 읽었다는 사실 자체가 채점을 막아야 한다. "검증 통과"가 "본문을 읽었다"를
+  // 대신할 수 없다 — 안 그러면 모델이 준 5개 점수가 프롬프트 지시(요청일 뿐 보장이 아님)에만
+  // 기대어 그대로 새어나간다.
+  it('본문이 없으면 근거 문장이 검증을 통과해도 점수는 전부 null이다', async () => {
+    const llm = async () =>
+      JSON.stringify({
+        ...allScoredPayload,
+        evidence: [{ verdict: 'pass', text: '12개 데이터셋에서 검증했다' }],
+      })
+    const r = await deepEval(llm, paper, null)
+    expect(r?.stage3.reproducibility.value).toBeNull()
+    expect(r?.stage3.design.value).toBeNull()
+    expect(r?.stage3.statistics.value).toBeNull()
+    expect(r?.stage3.claimVsEvidence.value).toBeNull()
+    expect(r?.stage3.limitations.value).toBeNull()
+    expect(r?.stage3.reproducibility.reason).toContain('본문')
+    expect(r?.caveats.join(' ')).toContain('본문')
+    // 근거 문장 자체(초록 대비 검증된 사실 문장)는 여전히 정직하므로 살아남는다
     expect(r?.evidence.map((e) => e.text)).toEqual(['12개 데이터셋에서 검증했다'])
   })
 
