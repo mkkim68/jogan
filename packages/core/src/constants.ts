@@ -59,7 +59,11 @@ export const RELEVANCE_THRESHOLD = 0.45
 /** 관심사 하나가 하루에 만들 수 있는 후보 수 상한 */
 export const CANDIDATES_PER_INTEREST = 50
 
-/** 임베딩 모델. 1024차원이라 EMBEDDING_DIM과 일치한다 */
-export const VOYAGE_MODEL = 'voyage-3'
+/**
+ * 임베딩 모델. 기본 출력이 1024차원이라 EMBEDDING_DIM과 일치한다 — 차원을 따로 넘기지 않는다.
+ * voyage-3는 deprecated라 쓰지 않는다. 모델을 바꾸면 기존 임베딩과 벡터 공간이 달라지므로
+ * papers·interests의 embedding을 전부 NULL로 비우고 다시 채워야 한다.
+ */
+export const VOYAGE_MODEL = 'voyage-4'
 /** Voyage가 한 요청에 받는 최대 입력 수 */
 export const VOYAGE_BATCH_SIZE = 128
