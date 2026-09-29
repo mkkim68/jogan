@@ -273,7 +273,20 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
 
-  services/evaluator: {}
+  services/evaluator:
+    dependencies:
+      '@jogan/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@jogan/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      dotenv:
+        specifier: ^18.0.2
+        version: 18.0.2
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
 packages:
 
