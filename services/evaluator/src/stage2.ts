@@ -85,15 +85,29 @@ export function fieldFromCategories(categories: string[] | null): Field {
   return 'other'
 }
 
-/** 색인 전이면 404다 — 그건 실패가 아니라 정보다 */
+const OpenAlexListResponse = z.object({
+  results: z.array(z.unknown()),
+})
+
+/**
+ * OpenAlex는 `/works/{external-id}` 축약 경로로 arXiv URL을 받지 않는다(실측: 404).
+ * 대신 `filter=locations.landing_page_url:...`로 조회하면 색인된 레코드는 200 +
+ * `results`에 항목 하나로 온다. 색인 전(흔한 경우 — 며칠 전 올라온 preprint)이면
+ * 이 필터도 여전히 200을 주고 `results`가 빈 배열이다 — 그게 404가 아니라는 뜻이다.
+ * 이제 404나 그 밖의 비정상 상태·모양은 진짜 오류이므로 던진다.
+ */
 export async function fetchOpenAlexByArxivId(
   client: HttpClient,
   arxivId: string,
   mailto: string,
 ): Promise<unknown | null> {
-  const url = `${OPENALEX_API}/https://arxiv.org/abs/${encodeURIComponent(arxivId)}?mailto=${encodeURIComponent(mailto)}`
+  const filter = `locations.landing_page_url:https://arxiv.org/abs/${arxivId}`
+  const url = `${OPENALEX_API}?filter=${encodeURIComponent(filter)}&mailto=${encodeURIComponent(mailto)}`
   const res = await client.request(url)
-  if (res.status === 404) return null
   if (!res.ok) throw new Error(`OpenAlex 응답 ${res.status}`)
-  return res.json()
+  const body: unknown = await res.json()
+  const parsed = OpenAlexListResponse.safeParse(body)
+  if (!parsed.success) throw new Error('OpenAlex 응답 모양이 예상과 다르다')
+  const [first] = parsed.data.results
+  return first ?? null
 }

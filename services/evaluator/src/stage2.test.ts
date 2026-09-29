@@ -86,8 +86,8 @@ describe('fieldFromCategories', () => {
 })
 
 describe('fetchOpenAlexByArxivId', () => {
-  it('404면 null이다', async () => {
-    const client = { request: async () => new Response('', { status: 404 }) }
+  it('results가 비어 있으면(아직 색인 전) null이다', async () => {
+    const client = { request: async () => new Response(JSON.stringify({ results: [] }), { status: 200 }) }
     expect(await fetchOpenAlexByArxivId(client, '2609.00001', 'a@b.com')).toBeNull()
   })
 
@@ -96,15 +96,32 @@ describe('fetchOpenAlexByArxivId', () => {
     const client = {
       request: async (url: string) => {
         seen = url
-        return new Response(JSON.stringify(work), { status: 200 })
+        return new Response(JSON.stringify({ results: [work] }), { status: 200 })
       },
     }
     await fetchOpenAlexByArxivId(client, '2609.00001', 'a@b.com')
     expect(seen).toContain('mailto=a%40b.com')
-    expect(seen).toContain('2609.00001')
   })
 
-  it('200이 아니고 404도 아니면 던진다', async () => {
+  it('arXiv id로 landing_page_url 필터를 건다', async () => {
+    let seen = ''
+    const client = {
+      request: async (url: string) => {
+        seen = url
+        return new Response(JSON.stringify({ results: [work] }), { status: 200 })
+      },
+    }
+    await fetchOpenAlexByArxivId(client, '2609.00001', 'a@b.com')
+    expect(seen).toContain('2609.00001')
+    expect(seen).toContain('locations.landing_page_url')
+  })
+
+  it('결과가 있으면 첫 번째를 돌려준다', async () => {
+    const client = { request: async () => new Response(JSON.stringify({ results: [work] }), { status: 200 }) }
+    expect(await fetchOpenAlexByArxivId(client, '2609.00001', 'a@b.com')).toEqual(work)
+  })
+
+  it('200이 아니면 던진다', async () => {
     const client = { request: async () => new Response('', { status: 500 }) }
     await expect(fetchOpenAlexByArxivId(client, '2609.00001', 'a@b.com')).rejects.toThrow()
   })
