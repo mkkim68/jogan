@@ -5,11 +5,12 @@ import {
   ARXIV_MIN_INTERVAL_MS,
   ARXIV_PAGE_SIZE,
   CANDIDATES_PER_INTEREST,
+  CANDIDATES_PER_USER,
   COLLECT_BACKFILL_DAYS,
   COLLECT_MAX_PER_RUN,
   COLLECT_WINDOW_DAYS,
   EmbeddingDimensionError,
-  RELEVANCE_THRESHOLD,
+  RELEVANCE_FLOOR,
   VOYAGE_BATCH_SIZE,
 } from '@jogan/core'
 import type { CandidateRow, NewPaper } from '@jogan/db'
@@ -451,7 +452,7 @@ export async function match(deps: MatchDeps = {}): Promise<number> {
         })
       }
 
-      const selected = selectBestPerPaper(groups, RELEVANCE_THRESHOLD, CANDIDATES_PER_INTEREST)
+      const selected = selectBestPerPaper(groups, RELEVANCE_FLOOR, CANDIDATES_PER_INTEREST, CANDIDATES_PER_USER)
       await upsert(
         selected.map((s) => ({
           userId,

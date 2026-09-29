@@ -133,10 +133,10 @@ collector가 쓰는 키: `collector:arxiv:last_submitted_at` (ISO 8601).
 
 - 대상: `published_at`이 최근 `COLLECT_WINDOW_DAYS`(14일) 이내이고 `embedding IS NOT NULL`인 논문 — 백필 창(7일)보다 반드시 넓어야 한다
 - `cosineDistance`(drizzle 0.45 내장)로 정렬, 유사도 = `1 - distance`
-- `relevance >= RELEVANCE_THRESHOLD` 이고 관심사당 상위 `CANDIDATES_PER_INTEREST`편
+- 관심사당 상위 `CANDIDATES_PER_INTEREST`편. `RELEVANCE_FLOOR`는 쓰레기만 막는 하한이고 선별은 순위가 한다. 사용자당 총량은 `CANDIDATES_PER_USER`로 묶는다
 - `paper_candidates`에 upsert. 이미 있으면 **더 높은 relevance로만** 갱신
 
-**임계값은 추측이다.** `RELEVANCE_THRESHOLD = 0.45`로 시작하되 상수에 "실제 결과를 보고 조정할 값"이라고 적는다. 상위 N편 제한이 함께 있어서, 임계값이 잘못돼도 후보 수가 폭발하지 않는다.
+**임계값 방식은 2026-09-29 실측 후 폐기했다.** 절대 점수는 매칭 품질이 아니라 관심사 라벨을 어떻게 적었는지를 따라간다 — `stt`는 0.35대에 진짜 음성인식 논문이, `수면과 기억 공고화`는 0.39대에 무관한 논문이 나왔다. 하나의 임계값으로 둘을 가를 수 없다. 그래서 관심사별 상대 선별로 바꾸고, 애매한 것을 걸러내는 일은 초록을 읽는 evaluator에 맡긴다(싼 필터가 앞, 재현율 우선). 근거는 `HISTORY.md`.
 
 임베딩이 없는 관심사는 **건너뛰고 로그**한다 — 실패가 아니라 "아직 준비 안 됨"이다.
 
@@ -147,7 +147,8 @@ ARXIV_CATEGORIES        7개 카테고리
 COLLECT_BACKFILL_DAYS   7   첫 실행 적재 기간
 COLLECT_WINDOW_DAYS     14  매칭 대상 논문의 최근성 (백필 창보다 넓게)
 COLLECT_MAX_PER_RUN     3000
-RELEVANCE_THRESHOLD     0.45  ← 실제 결과를 보고 조정
+RELEVANCE_FLOOR         0.30  ← 쓰레기 차단용 하한 (선별은 순위가 한다)
+CANDIDATES_PER_USER      150  ← 관심사 수가 늘어도 후보가 폭발하지 않게
 CANDIDATES_PER_INTEREST 50
 VOYAGE_MODEL            'voyage-3'
 VOYAGE_BATCH_SIZE       128
@@ -240,5 +241,5 @@ pnpm pipeline:collect     # 첫 실행: 7일치
 - **시드 논문 5편은 가짜 임베딩을 단 채 매칭 대상 풀에 섞여 있다.** 1024차원 난수와 실제
   임베딩의 코사인은 0 근처라 임계값을 넘지 못하지만, 진짜 데이터와 구분할 컬럼이 없다.
   실데이터로 평가를 돌릴 땐 명시적으로 걸러야 한다.
-- **`RELEVANCE_THRESHOLD = 0.45`는 아직 한 번도 실제 결과로 검증되지 않았다.** `VOYAGE_API_KEY`가
-  생긴 뒤 첫 실행의 상위 후보를 보고 정해야 한다. 그 전까지 이 값 위에 다른 기준을 쌓지 않는다.
+- ~~`RELEVANCE_THRESHOLD = 0.45` 검증~~ — 2026-09-29 실측으로 해소. 절대 임계값을 버리고
+  관심사별 상대 선별로 바꿨다. 경위와 숫자는 `HISTORY.md`.

@@ -51,13 +51,23 @@ export const ARXIV_PAGE_SIZE = 200
 export const ARXIV_MIN_INTERVAL_MS = 3000
 
 /**
- * 후보로 남길 코사인 유사도 하한.
- * **실제 수집 결과를 보고 조정할 값이다.** 관심사당 상위 N편 제한이 함께 걸려 있어서
- * 이 값이 낮게 잘못 잡혀도 후보 수가 폭발하지는 않는다.
+ * 후보를 버리는 절대 하한. **선별은 이 값이 아니라 관심사별 순위가 한다.**
+ *
+ * 절대 점수는 매칭 품질이 아니라 관심사 라벨을 어떻게 적었는지를 따라간다 —
+ * 실측(HISTORY.md 2026-09-29)에서 `stt`는 0.35대에 진짜 음성인식 논문이 나온 반면
+ * `수면과 기억 공고화`는 0.39대에 무관한 논문이 나왔다. 하나의 임계값으로 이 둘을
+ * 구분할 수 없다. 그래서 이 값은 "그 관심사에 정말 아무것도 없을 때 쓰레기를 막는"
+ * 용도로만 남기고, 애매한 것을 걸러내는 일은 초록을 읽는 evaluator가 맡는다.
  */
-export const RELEVANCE_THRESHOLD = 0.45
-/** 관심사 하나가 하루에 만들 수 있는 후보 수 상한 */
-export const CANDIDATES_PER_INTEREST = 50
+export const RELEVANCE_FLOOR = 0.3
+/** 관심사 하나가 하루에 만드는 후보 수. 실질적인 선별자다. */
+export const CANDIDATES_PER_INTEREST = 20
+/**
+ * 사용자 한 명의 하루 후보 총량 상한. MAX_INTERESTS는 "한 번에 추가할 수 있는 개수"일 뿐
+ * 총량 상한이 아니라, 관심사를 계속 추가하면 후보가 무한히 늘어난다. 관심사 7개까지는
+ * 걸리지 않는 느슨한 안전장치다.
+ */
+export const CANDIDATES_PER_USER = 150
 
 /**
  * 임베딩 모델. 기본 출력이 1024차원이라 EMBEDDING_DIM과 일치한다 — 차원을 따로 넘기지 않는다.

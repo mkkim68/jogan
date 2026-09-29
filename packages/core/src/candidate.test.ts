@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ARXIV_CATEGORIES, PaperCandidate, RELEVANCE_THRESHOLD } from './index'
+import { ARXIV_CATEGORIES, PaperCandidate, RELEVANCE_FLOOR } from './index'
 
 const base = {
   userId: 'u1',
@@ -31,7 +31,7 @@ describe('수집 상수', () => {
     for (const c of ARXIV_CATEGORIES) expect(c).toMatch(/^[a-z-]+(\.[A-Z]{2})?$/)
   })
   it('관련성 임계값은 0~1 사이다', () => {
-    expect(RELEVANCE_THRESHOLD).toBeGreaterThan(0)
-    expect(RELEVANCE_THRESHOLD).toBeLessThan(1)
+    expect(RELEVANCE_FLOOR).toBeGreaterThan(0)
+    expect(RELEVANCE_FLOOR).toBeLessThan(1)
   })
 })
