@@ -45,7 +45,8 @@ describe('toStage2', () => {
     const r = toStage2(parseOpenAlexWork(repo))
     expect(r.track).toBe('notable')
     expect(r.stage2.reviewStatus).toBe('preprint')
-    expect(r.evidence.some((e) => e.verdict === 'caution')).toBe(true)
+    // 조회는 됐지만 저널이 아니라고 "확인된" 경우다 — 조회 자체가 안 된 경우와 문장이 달라야 한다.
+    expect(r.evidence.some((e) => e.verdict === 'caution' && e.text === '심사를 거치지 않은 프리프린트다')).toBe(true)
   })
 
   // OpenAlex에 아직 없는 논문(며칠 전 올라온 것)은 흔하다. 탈락이 아니다.
@@ -53,7 +54,11 @@ describe('toStage2', () => {
     const r = toStage2(null)
     expect(r.track).toBe('notable')
     expect(r.caveats.join(' ')).toContain('색인')
-    expect(r.evidence.length).toBeGreaterThan(0)
+    // "확인 못 함"과 "확인했는데 저널이 아님"은 다른 사실이다 — 같은 문장을 쓰면
+    // 확인한 적 없는 것을 확인한 것처럼 보이게 된다(절대 규칙 2).
+    expect(r.evidence.some((e) => e.verdict === 'caution' && e.text === 'OpenAlex에 아직 색인되지 않아 게재 여부를 확인하지 못했다')).toBe(
+      true,
+    )
   })
 
   it('인용 수를 근거 문장에 쓴다', () => {
@@ -61,10 +66,23 @@ describe('toStage2', () => {
     expect(r.evidence.map((e) => e.text).join(' ')).toContain('12')
   })
 
-  it('authorTrackRecord는 0~1이고 가중치가 낮다는 것을 주석이 아니라 값으로 보인다', () => {
-    const r = toStage2(parseOpenAlexWork(work))
-    expect(r.stage2.authorTrackRecord).toBeGreaterThanOrEqual(0)
-    expect(r.stage2.authorTrackRecord).toBeLessThanOrEqual(1)
+  it('authorTrackRecord는 저자 수가 많아도 0.2를 넘지 않는다 (명성 편향 방지)', () => {
+    const manyAuthors = {
+      ...(work as Record<string, unknown>),
+      authorships: Array.from({ length: 40 }, (_, i) => ({ author: { display_name: `Author ${i}` } })),
+    }
+    const r = toStage2(parseOpenAlexWork(manyAuthors))
+    expect(r.stage2.authorTrackRecord).toBe(0.2)
+  })
+
+  it('저자가 많아도 저널이 아니면 여전히 주목 트랙이다 (저자 수가 트랙을 바꾸지 않는다)', () => {
+    const manyAuthorsNoJournal = {
+      ...(work as Record<string, unknown>),
+      primary_location: { source: { display_name: 'arXiv', type: 'repository' } },
+      authorships: Array.from({ length: 40 }, (_, i) => ({ author: { display_name: `Author ${i}` } })),
+    }
+    const r = toStage2(parseOpenAlexWork(manyAuthorsNoJournal))
+    expect(r.track).toBe('notable')
   })
 })
 

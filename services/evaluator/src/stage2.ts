@@ -46,7 +46,7 @@ export function toStage2(work: OpenAlexWork | null): Stage2Result {
     return {
       stage2: { venueTier: null, reviewStatus: 'preprint', reviewScore: null, authorTrackRecord: 0 },
       track: 'notable',
-      evidence: [{ stage: 2, verdict: 'caution', text: '심사를 거치지 않은 프리프린트다' }],
+      evidence: [{ stage: 2, verdict: 'caution', text: 'OpenAlex에 아직 색인되지 않아 게재 여부를 확인하지 못했다' }],
       caveats: ['OpenAlex에 아직 색인되지 않아 출처 신호를 확인하지 못했다'],
     }
   }
