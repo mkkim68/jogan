@@ -134,6 +134,21 @@ describe('fetchOpenAlexByArxivId', () => {
     expect(seen).toContain('locations.landing_page_url')
   })
 
+  it('http와 https 두 스킴을 OR로 함께 조회한다', async () => {
+    // 실측: 옛 레코드는 http://arxiv.org/abs/…, 최근(2609.*) 레코드는 https://로 저장돼 있다
+    let seen = ''
+    const client = {
+      request: async (url: string) => {
+        seen = decodeURIComponent(url)
+        return new Response(JSON.stringify({ results: [work] }), { status: 200 })
+      },
+    }
+    await fetchOpenAlexByArxivId(client, '2609.00001', 'a@b.com')
+    expect(seen).toContain(
+      'locations.landing_page_url:http://arxiv.org/abs/2609.00001|https://arxiv.org/abs/2609.00001',
+    )
+  })
+
   it('결과가 있으면 첫 번째를 돌려준다', async () => {
     const client = { request: async () => new Response(JSON.stringify({ results: [work] }), { status: 200 }) }
     expect(await fetchOpenAlexByArxivId(client, '2609.00001', 'a@b.com')).toEqual(work)

@@ -95,13 +95,17 @@ const OpenAlexListResponse = z.object({
  * `results`에 항목 하나로 온다. 색인 전(흔한 경우 — 며칠 전 올라온 preprint)이면
  * 이 필터도 여전히 200을 주고 `results`가 빈 배열이다 — 그게 404가 아니라는 뜻이다.
  * 이제 404나 그 밖의 비정상 상태·모양은 진짜 오류이므로 던진다.
+ *
+ * 스킴은 레코드마다 다르다(실측 2026-09-30): 옛 레코드는 `http://arxiv.org/abs/…`,
+ * 최근 레코드는 `https://`로 저장돼 있고 필터는 정확 일치라 한쪽만 걸면 다른 쪽을 전부
+ * 놓친다. `|`로 둘 다 건다.
  */
 export async function fetchOpenAlexByArxivId(
   client: HttpClient,
   arxivId: string,
   mailto: string,
 ): Promise<unknown | null> {
-  const filter = `locations.landing_page_url:https://arxiv.org/abs/${arxivId}`
+  const filter = `locations.landing_page_url:http://arxiv.org/abs/${arxivId}|https://arxiv.org/abs/${arxivId}`
   const url = `${OPENALEX_API}?filter=${encodeURIComponent(filter)}&mailto=${encodeURIComponent(mailto)}`
   const res = await client.request(url)
   if (!res.ok) throw new Error(`OpenAlex 응답 ${res.status}`)
