@@ -39,6 +39,9 @@ export type EvaluateDeps = {
   mailto?: string
 }
 
+// 실제 비용을 HISTORY.md에 남기기 위한 누계. main이 끝날 때 한 번 찍는다
+const usage = { calls: 0, input: 0, output: 0 }
+
 function anthropicLlm(): LlmFn {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) throw new Error('ANTHROPIC_API_KEY가 없다. .env에 넣어라 (console.anthropic.com에서 발급)')
@@ -50,6 +53,11 @@ function anthropicLlm(): LlmFn {
       system: prompt,
       messages: [{ role: 'user', content: input }],
     })
+    usage.calls++
+    usage.input += res.usage.input_tokens
+    usage.output += res.usage.output_tokens
+    // 잘린 JSON은 파싱에 실패해 조용히 null이 된다 — 원인이 여기라는 걸 로그로 남긴다
+    if (res.stop_reason === 'max_tokens') log('llm', `max_tokens에서 잘렸다 (출력 ${res.usage.output_tokens} 토큰)`)
     return res.content.map((b) => (b.type === 'text' ? b.text : '')).join('')
   }
 }
@@ -153,6 +161,7 @@ export async function evaluate(deps: EvaluateDeps = {}): Promise<{ assessed: num
       if (deepSet.has(item.paper.id)) {
         const body = item.paper.arxivId === null ? null : await fetchBody(item.paper.arxivId)
         const d = await deepEval(llm, item.paper, body)
+        if (d === null) log('stage3', `본문 평가 응답을 파싱하지 못해 ③단계 없이 저장 ${item.paper.id}`)
         if (d !== null) {
           item.row.stage3 = d.stage3
           item.row.evidence = [...item.evidence, ...d.evidence]
@@ -175,7 +184,7 @@ export async function evaluate(deps: EvaluateDeps = {}): Promise<{ assessed: num
 async function main(): Promise<void> {
   const started = Date.now()
   const r = await evaluate()
-  log('done', `${((Date.now() - started) / 1000).toFixed(1)}초`)
+  log('done', `${((Date.now() - started) / 1000).toFixed(1)}초 · LLM ${usage.calls}회 · 입력 ${usage.input} · 출력 ${usage.output} 토큰`)
   if (r.assessed === 0 && r.failed > 0) throw new Error('전부 실패했다 — API 키나 연결을 확인해라')
 }
 
