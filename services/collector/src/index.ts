@@ -15,11 +15,12 @@ import {
   VOYAGE_BATCH_SIZE,
   type HttpClient,
 } from '@jogan/core'
-import type { CandidateRow, NewPaper } from '@jogan/db'
+import type { CandidateRow, NewPaper, NewRelevanceJudgment } from '@jogan/db'
 import { z } from 'zod'
 import { buildArxivQueryUrl, dedupeByArxivId, entryToPaper, fetchArxivPage, parseArxivFeed, stripVersion } from './arxiv'
 import { embedTexts, paperEmbeddingInput } from './embed'
 import { selectBestPerPaper, type InterestMatches } from './match'
+import { createRelevanceLlm, judgeRelevance, RELEVANCE_MODEL, type Judgment, type LlmUsage } from './relevance'
 
 // @jogan/db를 타입으로만 import하게 되면서(기본 구현은 호출 시점 동적 import) 그 부작용으로
 // 딸려오던 dotenv 로드가 사라졌다. VOYAGE_API_KEY는 여기서 직접 읽으므로 명시적으로 불러온다.
@@ -45,6 +46,9 @@ const OVERLAP_MS = 3 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 
 const log = (stage: string, msg: string) => console.log(`[collector:${stage}] ${msg}`)
+
+/** 관련성 판정 LLM 누계. 비용을 HISTORY.md에 남기기 위해 match 끝에 한 번 찍는다 */
+const relevanceUsage: LlmUsage = { calls: 0, input: 0, output: 0 }
 
 /**
  * 비용 로그용 토큰 어림치. 정확한 토크나이저를 부르지 않고 문자 수로 나눈 **추정치**다
@@ -402,26 +406,53 @@ export async function embed(
   return { papers: papers.count, interests: interests.count, estimatedTokens }
 }
 
+export type PaperMatch = { paperId: string; relevance: number; title: string; abstract: string }
+
 export type MatchDeps = {
   listUserIds?: () => Promise<string[]>
-  listInterests?: (userId: string) => Promise<{ id: string; embedding: number[] | null }[]>
-  matchPapers?: (
-    embedding: number[],
-    since: Date,
-    limit: number,
-  ) => Promise<{ paperId: string; relevance: number }[]>
+  listInterests?: (userId: string) => Promise<{ id: string; label: string; embedding: number[] | null }[]>
+  matchPapers?: (embedding: number[], since: Date, limit: number) => Promise<PaperMatch[]>
   upsertCandidates?: (rows: CandidateRow[]) => Promise<void>
   /** KST 기준 수집일. 주입하지 않으면 `@jogan/db`의 todayInSeoul() */
   collectedFor?: string
+  /** 관련성 판정. 주입하지 않으면 Haiku를 부른다(ANTHROPIC_API_KEY 필요) */
+  judge?: (label: string, paper: { title: string; abstract: string }) => Promise<Judgment | null>
+  loadJudgments?: (interestId: string, paperIds: string[]) => Promise<Map<string, boolean>>
+  saveJudgments?: (rows: NewRelevanceJudgment[]) => Promise<void>
+  deleteCandidates?: (userId: string, pairs: { interestId: string; paperId: string }[]) => Promise<void>
 }
 
 /**
- * ④ 관련성 매칭.
- * 사용자 한 명의 실패(예: 읽은 뒤 삭제된 관심사 때문에 interest_id FK 위반)가 나머지
- * 사용자까지 죽이지 않도록 사용자 단위로 격리한다 (CLAUDE.md: 파이프라인 전체를 죽이지 않는다).
- * 유일한 예외는 `EmbeddingDimensionError`다 — 데이터가 이미 깨졌다는 신호라 그대로 다시 던진다.
+ * ④ 관련성 매칭 + 판정 (ADR 0001).
+ * 임베딩 순위로 관심사별 상위 CANDIDATES_PER_INTEREST편(RELEVANCE_FLOOR 이상)을 뽑고, 각 쌍을
+ * LLM이 "이 관심사의 연구 주제인가"로 판정한다. 통과한 것만 selectBestPerPaper로 넘긴다.
+ * 빈 자리는 채우지 않는다 — 관련 논문이 없는 날 그 관심사는 0편이다.
+ *
+ * 사용자 한 명의 실패가 나머지 사용자까지 죽이지 않도록 사용자 단위로 격리한다
+ * (CLAUDE.md: 파이프라인 전체를 죽이지 않는다). 예외는 `EmbeddingDimensionError`다.
  */
 export async function match(deps: MatchDeps = {}): Promise<number> {
+  // 판정 없이 통과시키는 경로는 없다 — 키가 없으면 아무것도 하기 전에 멈춘다
+  let judge = deps.judge
+  if (!judge) {
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) {
+      throw new Error(
+        'ANTHROPIC_API_KEY가 없다. 관련성 판정(④)에 필요하다. .env에 넣고 다시 실행하면 ' +
+          '수집·임베딩 결과는 DB에 남아 있으니 매칭부터 이어서 진행한다.',
+      )
+    }
+    const llm = createRelevanceLlm(apiKey, relevanceUsage, () => log('relevance', 'max_tokens에서 잘렸다'))
+    judge = (label, paper) =>
+      judgeRelevance(llm, label, paper, (f) =>
+        log(
+          'relevance',
+          `판정 실패 ${f.kind} (${label} / ${paper.title.slice(0, 60)}): ${f.detail}` +
+            (f.raw ? `\n--- 응답 원문 ---\n${f.raw.slice(0, 500)}\n---` : ''),
+        ),
+      )
+  }
+
   const listUserIds = deps.listUserIds ?? (async () => (await loadDb()).listUserIds())
   const listInterests =
     deps.listInterests ?? (async (userId: string) => (await loadDb()).listInterestEmbeddings(userId))
@@ -430,29 +461,81 @@ export async function match(deps: MatchDeps = {}): Promise<number> {
     (async (embedding: number[], since: Date, limit: number) =>
       (await loadDb()).matchPapersForInterest(embedding, since, limit))
   const upsert = deps.upsertCandidates ?? (async (rows: CandidateRow[]) => (await loadDb()).upsertCandidates(rows))
+  const loadJudgments =
+    deps.loadJudgments ??
+    (async (interestId: string, paperIds: string[]) => (await loadDb()).listRelevanceJudgments(interestId, paperIds))
+  const saveJudgments =
+    deps.saveJudgments ?? (async (rows: NewRelevanceJudgment[]) => (await loadDb()).saveRelevanceJudgments(rows))
+  const deleteCandidates =
+    deps.deleteCandidates ??
+    (async (userId: string, pairs: { interestId: string; paperId: string }[]) =>
+      (await loadDb()).deleteCandidatesForPairs(userId, pairs))
   const collectedFor = deps.collectedFor ?? (await loadDb()).todayInSeoul()
 
   const since = new Date(Date.now() - COLLECT_WINDOW_DAYS * DAY_MS)
   const userIds = await listUserIds()
   let total = 0
   let failedUsers = 0
+  /** 새로 LLM에 물은 수와 그중 답을 받은 수 — 전량 실패를 가려내는 데 쓴다 */
+  let attempted = 0
+  let answered = 0
 
   for (const userId of userIds) {
     try {
       const owned = await listInterests(userId)
 
       const groups: InterestMatches[] = []
+      const rejected: { interestId: string; paperId: string }[] = []
       for (const it of owned) {
         if (!it.embedding) {
           log('match', `관심사 ${it.id}는 아직 임베딩이 없어 건너뜀`)
           continue
         }
-        groups.push({
-          interestId: it.id,
-          matches: await matchPapers(it.embedding, since, CANDIDATES_PER_INTEREST),
-        })
+        // floor·관심사별 상한은 판정 전에 적용한다 — floor 아래 쌍에 LLM을 쓰지 않는다
+        const top = (await matchPapers(it.embedding, since, CANDIDATES_PER_INTEREST))
+          .filter((m) => m.relevance >= RELEVANCE_FLOOR)
+          .slice(0, CANDIDATES_PER_INTEREST)
+        const cached = await loadJudgments(it.id, top.map((m) => m.paperId))
+
+        const passed: { paperId: string; relevance: number }[] = []
+        const fresh: NewRelevanceJudgment[] = []
+        const n = { judged: 0, pass: 0, reject: 0, held: 0, cached: 0 }
+        for (const m of top) {
+          let relevant = cached.get(m.paperId)
+          if (relevant === undefined) {
+            n.judged++
+            attempted++
+            const j = await judge(it.label, m)
+            if (j === null) {
+              n.held++
+              log('relevance', `판정 실패로 보류 ${it.id}/${m.paperId}`)
+              continue
+            }
+            answered++
+            relevant = j.relevant
+            fresh.push({ interestId: it.id, paperId: m.paperId, relevant: j.relevant, reason: j.reason, model: RELEVANCE_MODEL })
+          } else {
+            n.cached++
+          }
+          if (relevant) {
+            n.pass++
+            passed.push({ paperId: m.paperId, relevance: m.relevance })
+          } else {
+            n.reject++
+            rejected.push({ interestId: it.id, paperId: m.paperId })
+          }
+        }
+        // 관심사마다 바로 저장한다 — 뒤에서 실패해도 이미 낸 판정 비용은 다음 실행이 재사용한다
+        await saveJudgments(fresh)
+        groups.push({ interestId: it.id, matches: passed })
+        log(
+          'relevance',
+          `관심사 ${it.label}: 판정 ${n.judged} · 통과 ${n.pass} · 탈락 ${n.reject} · 보류 ${n.held} · 캐시 ${n.cached}`,
+        )
       }
 
+      // 삭제가 upsert보다 먼저다 — 같은 실행에서 다른 관심사로 선별되면 이어지는 upsert가 새 행을 넣는다
+      await deleteCandidates(userId, rejected)
       const selected = selectBestPerPaper(groups, RELEVANCE_FLOOR, CANDIDATES_PER_INTEREST, CANDIDATES_PER_USER)
       await upsert(
         selected.map((s) => ({
@@ -464,7 +547,7 @@ export async function match(deps: MatchDeps = {}): Promise<number> {
         })),
       )
       total += selected.length
-      log('match', `사용자 ${userId}: 후보 ${selected.length}편`)
+      log('match', `사용자 ${userId}: 후보 ${selected.length}편 (탈락 쌍 ${rejected.length}개 정리)`)
     } catch (err) {
       if (err instanceof EmbeddingDimensionError) throw err
       failedUsers++
@@ -473,6 +556,19 @@ export async function match(deps: MatchDeps = {}): Promise<number> {
   }
 
   if (failedUsers > 0) log('match', `사용자 ${failedUsers}명은 실패로 건너뛰었다 (위 로그 참고)`)
+  if (relevanceUsage.calls > 0) {
+    log(
+      'relevance',
+      `LLM ${relevanceUsage.calls}회 · 입력 ${relevanceUsage.input} · 출력 ${relevanceUsage.output} 토큰`,
+    )
+  }
+  // 임베딩 단계와 같은 규칙 — 전량 실패는 항목 문제가 아니라 단계 장애다(키 만료·크레딧 소진).
+  // 저장은 이미 끝났으니 캐시로 통과한 후보는 살아 있고, 여기서 던져 exit 1로 알린다.
+  if (attempted > 0 && answered === 0) {
+    throw new Error(
+      `관련성 판정이 전량 실패했다 (${attempted}건 시도, 응답 0건). Anthropic 키/크레딧/네트워크를 확인할 것.`,
+    )
+  }
   return total
 }
 
