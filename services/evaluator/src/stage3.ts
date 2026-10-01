@@ -14,15 +14,21 @@ export function loadPrompt(name: 'triage' | 'deep-eval'): string {
 }
 
 /** LLM이 코드블록으로 감싸는 일이 흔하다 */
-function extractJson(raw: string): unknown {
+function fencedBody(raw: string): string {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
-  const body = (fenced?.[1] ?? raw).trim()
+  return (fenced?.[1] ?? raw).trim()
+}
+
+function extractJson(raw: string): unknown {
   try {
-    return JSON.parse(body)
+    return JSON.parse(fencedBody(raw))
   } catch {
     return null
   }
 }
+
+/** 본문 평가 응답을 쓰지 못한 이유. 응답 원문을 함께 넘겨 원인을 사후에 볼 수 있게 한다 */
+export type ParseFailure = { kind: 'json' | 'schema'; detail: string; raw: string }
 
 const TriageOut = z.object({ score: z.number().min(0).max(1).nullable() })
 
@@ -73,13 +79,25 @@ export async function deepEval(
   llm: LlmFn,
   paper: { title: string; abstract: string },
   fullText: string | null,
+  onInvalid?: (failure: ParseFailure) => void,
 ): Promise<DeepResult | null> {
   const noBody = fullText === null
   const body = fullText ?? paper.abstract
   const header = noBody ? '(본문을 받지 못했다. 초록만 주어진다.)\n\n' : ''
   const raw = await llm(loadPrompt('deep-eval'), `${header}# ${paper.title}\n\n${body}`)
-  const parsed = DeepOut.safeParse(extractJson(raw))
-  if (!parsed.success) return null
+  let json: unknown
+  try {
+    json = JSON.parse(fencedBody(raw))
+  } catch (err) {
+    onInvalid?.({ kind: 'json', detail: String(err), raw })
+    return null
+  }
+  const parsed = DeepOut.safeParse(json)
+  if (!parsed.success) {
+    const detail = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')
+    onInvalid?.({ kind: 'schema', detail, raw })
+    return null
+  }
   const d = parsed.data
 
   const proposed: Evidence[] = d.evidence.map((e) => ({ stage: 3, verdict: e.verdict, text: e.text }))

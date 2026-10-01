@@ -151,6 +151,23 @@ describe('deepEval', () => {
     expect(await deepEval(llm, paper, source)).toBeNull()
   })
 
+  it('JSON 문법이 깨지면 원문과 함께 "json" 실패를 알린다', async () => {
+    const raw = '{"reproducibility": {"value": 0.5, "reason": "끝이 잘'
+    const seen: { raw: string; kind: string; detail: string }[] = []
+    expect(await deepEval(async () => raw, paper, source, (f) => seen.push(f))).toBeNull()
+    expect(seen).toHaveLength(1)
+    expect(seen[0]?.kind).toBe('json')
+    expect(seen[0]?.raw).toBe(raw)
+  })
+
+  it('JSON은 맞는데 스키마가 다르면 어느 필드인지 "schema" 실패로 알린다', async () => {
+    const llm = async () => JSON.stringify({ ...deepPayload, evidence: [{ verdict: 'fail', text: 'x' }] })
+    const seen: { kind: string; detail: string }[] = []
+    expect(await deepEval(llm, paper, source, (f) => seen.push(f))).toBeNull()
+    expect(seen[0]?.kind).toBe('schema')
+    expect(seen[0]?.detail).toContain('evidence.0.verdict')
+  })
+
   it('LLM이 던지면 그대로 올린다 (호출자가 논문 단위로 건너뛴다)', async () => {
     const llm = async () => { throw new Error('rate limit') }
     await expect(deepEval(llm, paper, source)).rejects.toThrow('rate limit')

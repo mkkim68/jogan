@@ -154,14 +154,17 @@ export async function evaluate(deps: EvaluateDeps = {}): Promise<{ assessed: num
   // ③b — 상위 몇 편만 본문을 읽는다
   const ranked = [...pending].sort((a, b) => b.score - a.score)
   const deepSet = new Set(ranked.slice(0, TRIAGE_DEEP_CUT).map((x) => x.paper.id))
+  log('stage3', `본문 평가 대상: ${ranked.slice(0, TRIAGE_DEEP_CUT).map((x) => `${x.paper.arxivId ?? x.paper.id}(${x.score})`).join(', ')}`)
   let deep = 0
 
   for (const item of pending) {
     try {
       if (deepSet.has(item.paper.id)) {
         const body = item.paper.arxivId === null ? null : await fetchBody(item.paper.arxivId)
-        const d = await deepEval(llm, item.paper, body)
-        if (d === null) log('stage3', `본문 평가 응답을 파싱하지 못해 ③단계 없이 저장 ${item.paper.id}`)
+        const d = await deepEval(llm, item.paper, body, (f) =>
+          log('stage3', `본문 평가 응답 ${f.kind} 실패 ${item.paper.id}: ${f.detail}\n--- 응답 원문 ---\n${f.raw}\n---`),
+        )
+        if (d === null) log('stage3', `본문 평가 응답을 쓰지 못해 ③단계 없이 저장 ${item.paper.id}`)
         if (d !== null) {
           item.row.stage3 = d.stage3
           item.row.evidence = [...item.evidence, ...d.evidence]
