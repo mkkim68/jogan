@@ -656,6 +656,130 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
       await db.delete(papers).where(eq(papers.arxivId, arxivId))
     }
   })
+  it('관련성 판정을 저장·조회하고, 같은 쌍은 덮어쓴다', async () => {
+    const {
+      db, papers, listInterests, upsertArxivPapers,
+      listRelevanceJudgments, saveRelevanceJudgments,
+    } = await import('../index')
+    const { eq } = await import('drizzle-orm')
+    const arxivId = '__test.00006'
+    try {
+      await upsertArxivPapers([{
+        doi: null, arxivId, title: '관련성 판정 테스트', authors: [{ name: '저자' }],
+        abstract: '초록', publishedAt: new Date('2026-09-20T00:00:00Z'),
+        source: 'arxiv' as const, venue: { name: 'arXiv', kind: 'preprint' as const },
+        pdfUrl: null, codeUrl: null, openAccess: true,
+      }])
+      const paper = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      const [interest] = await listInterests(userId)
+      expect(paper).toBeDefined()
+      expect(interest).toBeDefined()
+      if (!paper || !interest) return
+
+      // 빈 입력은 DB를 부르지 않고 빈 Map
+      expect((await listRelevanceJudgments(interest.id, [])).size).toBe(0)
+      await saveRelevanceJudgments([])
+
+      await saveRelevanceJudgments([
+        { interestId: interest.id, paperId: paper.id, relevant: false, reason: '단어만 겹친다', model: 'm1' },
+      ])
+      expect((await listRelevanceJudgments(interest.id, [paper.id])).get(paper.id)).toBe(false)
+
+      await saveRelevanceJudgments([
+        { interestId: interest.id, paperId: paper.id, relevant: true, reason: '주제가 같다', model: 'm2' },
+      ])
+      const after = await listRelevanceJudgments(interest.id, [paper.id])
+      expect(after.size).toBe(1)
+      expect(after.get(paper.id)).toBe(true)
+    } finally {
+      // relevance_judgments는 papers에 on delete cascade라 논문만 지우면 같이 지워진다
+      await db.delete(papers).where(eq(papers.arxivId, arxivId))
+    }
+  })
+
+  it('탈락 쌍의 후보는 (사용자, 논문, 관심사)가 모두 일치할 때만 지운다', async () => {
+    const {
+      db, papers, paperCandidates, listInterests, upsertArxivPapers, upsertCandidates,
+      deleteCandidatesForPairs,
+    } = await import('../index')
+    const { and, eq } = await import('drizzle-orm')
+    const arxivA = '__test.00007'
+    const arxivB = '__test.00008'
+    const base = {
+      doi: null, authors: [{ name: '저자' }], abstract: '초록',
+      publishedAt: new Date('2026-09-20T00:00:00Z'), source: 'arxiv' as const,
+      venue: { name: 'arXiv', kind: 'preprint' as const }, pdfUrl: null, codeUrl: null, openAccess: true,
+    }
+    try {
+      await upsertArxivPapers([
+        { ...base, arxivId: arxivA, title: '삭제 대상' },
+        { ...base, arxivId: arxivB, title: '다른 관심사로 걸린 논문' },
+      ])
+      const pa = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivA) })
+      const pb = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivB) })
+      const [i1, i2] = await listInterests(userId)
+      if (!pa || !pb || !i1 || !i2) throw new Error('시드 관심사가 2개 이상 있어야 한다')
+
+      await upsertCandidates([
+        { userId, paperId: pa.id, interestId: i1.id, relevance: 0.5, collectedFor: '2026-10-01' },
+        { userId, paperId: pb.id, interestId: i2.id, relevance: 0.5, collectedFor: '2026-10-01' },
+      ])
+
+      await deleteCandidatesForPairs(userId, []) // 빈 입력은 아무것도 지우지 않는다
+      // pb는 i1 쌍으로 탈락했지만 후보 행은 i2로 걸려 있다 — 지우면 안 된다
+      await deleteCandidatesForPairs(userId, [
+        { interestId: i1.id, paperId: pa.id },
+        { interestId: i1.id, paperId: pb.id },
+      ])
+
+      const rows = await db.query.paperCandidates.findMany({ where: eq(paperCandidates.userId, userId) })
+      const ids = rows.map((r) => r.paperId)
+      expect(ids).not.toContain(pa.id)
+      expect(ids).toContain(pb.id)
+    } finally {
+      for (const arxivId of [arxivA, arxivB]) {
+        const p = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+        if (p) {
+          await db
+            .delete(paperCandidates)
+            .where(and(eq(paperCandidates.userId, userId), eq(paperCandidates.paperId, p.id)))
+        }
+        await db.delete(papers).where(eq(papers.arxivId, arxivId))
+      }
+    }
+  })
+
+  it('매칭 입력이 판정에 필요한 라벨·제목·초록을 함께 준다', async () => {
+    const {
+      db, papers, listInterestEmbeddings, upsertArxivPapers, setPaperEmbedding, matchPapersForInterest,
+    } = await import('../index')
+    const { EMBEDDING_DIM } = await import('@jogan/core')
+    const { eq } = await import('drizzle-orm')
+    const arxivId = '__test.00009'
+    try {
+      const owned = await listInterestEmbeddings(userId)
+      expect(owned.length).toBeGreaterThan(0)
+      expect(typeof owned[0]?.label).toBe('string')
+
+      await upsertArxivPapers([{
+        doi: null, arxivId, title: '매칭 입력 테스트', authors: [{ name: '저자' }],
+        abstract: '매칭 초록', publishedAt: new Date('2026-09-20T00:00:00Z'),
+        source: 'arxiv' as const, venue: { name: 'arXiv', kind: 'preprint' as const },
+        pdfUrl: null, codeUrl: null, openAccess: true,
+      }])
+      const paper = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      if (!paper) throw new Error('테스트 논문 생성 실패')
+      const vec = Array.from({ length: EMBEDDING_DIM }, (_, i) => (i === 0 ? 1 : 0))
+      await setPaperEmbedding(paper.id, vec)
+
+      const found = (await matchPapersForInterest(vec, new Date('2026-09-19T00:00:00Z'), 5))
+        .find((m) => m.paperId === paper.id)
+      expect(found?.title).toBe('매칭 입력 테스트')
+      expect(found?.abstract).toBe('매칭 초록')
+    } finally {
+      await db.delete(papers).where(eq(papers.arxivId, arxivId))
+    }
+  })
 })
 
 afterAll(async () => {

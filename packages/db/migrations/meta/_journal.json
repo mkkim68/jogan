@@ -43,6 +43,13 @@
       "when": 1790661700421,
       "tag": "0005_thick_catseye",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790839365566,
+      "tag": "0006_mixed_microchip",
+      "breakpoints": true
     }
   ]
 }

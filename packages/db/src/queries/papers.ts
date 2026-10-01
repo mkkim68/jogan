@@ -139,10 +139,10 @@ export async function matchPapersForInterest(
   embedding: number[],
   since: Date,
   limit: number,
-): Promise<{ paperId: string; relevance: number }[]> {
+): Promise<{ paperId: string; relevance: number; title: string; abstract: string }[]> {
   const relevance = sql<number>`1 - (${cosineDistance(papers.embedding, embedding)})`
   return db
-    .select({ paperId: papers.id, relevance })
+    .select({ paperId: papers.id, relevance, title: papers.title, abstract: papers.abstract })
     .from(papers)
     .where(and(isNull(papers.mergedInto), gte(papers.publishedAt, since), sql`${papers.embedding} is not null`))
     .orderBy(desc(relevance))
