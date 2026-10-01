@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { judgeRelevance, loadRelevancePrompt } from './relevance'
+import { judgeRelevance, loadRelevancePrompt, type JudgeFailure } from './relevance'
 
 const paper = { title: 'Sleep spindles and memory', abstract: 'We record sleep spindles in 40 adults.' }
 
@@ -62,7 +62,7 @@ describe('judgeRelevance', () => {
 
 describe('judgeRelevance — failure callbacks', () => {
   it('llm이 던지면 onFailure(llm)을 호출한다', async () => {
-    let failure: any = null
+    let failure: JudgeFailure | null = null
     const llm = async (): Promise<string> => {
       throw new Error('529 overloaded')
     }
@@ -70,32 +70,32 @@ describe('judgeRelevance — failure callbacks', () => {
       failure = f
     })
     expect(failure).not.toBeNull()
-    expect(failure.kind).toBe('llm')
-    expect(failure.detail).toContain('529 overloaded')
+    expect(failure!.kind).toBe('llm')
+    expect(failure!.detail).toContain('529 overloaded')
   })
 
   it('JSON 파싱이 실패하면 onFailure(json)을 호출한다', async () => {
-    let failure: any = null
+    let failure: JudgeFailure | null = null
     const llm = async () => '{{ invalid json'
     await judgeRelevance(llm, 'x', paper, (f) => {
       failure = f
     })
     expect(failure).not.toBeNull()
-    expect(failure.kind).toBe('json')
-    expect(failure.detail).toContain('JSON')
-    expect(failure.raw).toBe('{{ invalid json')
+    expect(failure!.kind).toBe('json')
+    expect(failure!.detail).toContain('JSON')
+    expect(failure!.raw).toBe('{{ invalid json')
   })
 
   it('스키마 검증이 실패하면 onFailure(schema)를 호출한다', async () => {
-    let failure: any = null
+    let failure: JudgeFailure | null = null
     const llm = async () => '{"relevant": true}'
     await judgeRelevance(llm, 'x', paper, (f) => {
       failure = f
     })
     expect(failure).not.toBeNull()
-    expect(failure.kind).toBe('schema')
-    expect(failure.detail).toContain('reason')
-    expect(failure.raw).toBe('{"relevant": true}')
+    expect(failure!.kind).toBe('schema')
+    expect(failure!.detail).toContain('reason')
+    expect(failure!.raw).toBe('{"relevant": true}')
   })
 
   it('onFailure 콜백이 선택사항이다', async () => {

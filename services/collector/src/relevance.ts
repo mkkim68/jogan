@@ -28,14 +28,6 @@ function fencedBody(raw: string): string {
   return (fenced?.[1] ?? raw).trim()
 }
 
-function extractJson(raw: string): unknown {
-  try {
-    return JSON.parse(fencedBody(raw))
-  } catch {
-    return null
-  }
-}
-
 /**
  * 논문이 관심사의 연구 주제 자체를 다루는지 판정한다 (ADR 0001).
  * 응답을 못 읽거나 호출이 던지면 null — 호출자는 이 쌍을 **보류**한다(후보에도 캐시에도 넣지 않는다).
