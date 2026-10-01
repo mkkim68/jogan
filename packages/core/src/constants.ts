@@ -57,7 +57,8 @@ export const ARXIV_MIN_INTERVAL_MS = 3000
  * 실측(HISTORY.md 2026-09-29)에서 `stt`는 0.35대에 진짜 음성인식 논문이 나온 반면
  * `수면과 기억 공고화`는 0.39대에 무관한 논문이 나왔다. 하나의 임계값으로 이 둘을
  * 구분할 수 없다. 그래서 이 값은 "그 관심사에 정말 아무것도 없을 때 쓰레기를 막는"
- * 용도로만 남기고, 애매한 것을 걸러내는 일은 초록을 읽는 evaluator가 맡는다.
+ * 용도로만 남기고, 애매한 것을 걸러내는 일은 collector의 관련성 판정 단계
+ * (`services/collector/src/relevance.ts`, ADR 0001)가 맡는다.
  */
 export const RELEVANCE_FLOOR = 0.3
 /** 관심사 하나가 하루에 만드는 후보 수. 실질적인 선별자다. */
