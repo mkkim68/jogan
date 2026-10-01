@@ -59,3 +59,47 @@ describe('judgeRelevance', () => {
     expect(seenInput).toContain(paper.abstract)
   })
 })
+
+describe('judgeRelevance — failure callbacks', () => {
+  it('llm이 던지면 onFailure(llm)을 호출한다', async () => {
+    let failure: any = null
+    const llm = async (): Promise<string> => {
+      throw new Error('529 overloaded')
+    }
+    await judgeRelevance(llm, 'x', paper, (f) => {
+      failure = f
+    })
+    expect(failure).not.toBeNull()
+    expect(failure.kind).toBe('llm')
+    expect(failure.detail).toContain('529 overloaded')
+  })
+
+  it('JSON 파싱이 실패하면 onFailure(json)을 호출한다', async () => {
+    let failure: any = null
+    const llm = async () => '{{ invalid json'
+    await judgeRelevance(llm, 'x', paper, (f) => {
+      failure = f
+    })
+    expect(failure).not.toBeNull()
+    expect(failure.kind).toBe('json')
+    expect(failure.detail).toContain('JSON')
+    expect(failure.raw).toBe('{{ invalid json')
+  })
+
+  it('스키마 검증이 실패하면 onFailure(schema)를 호출한다', async () => {
+    let failure: any = null
+    const llm = async () => '{"relevant": true}'
+    await judgeRelevance(llm, 'x', paper, (f) => {
+      failure = f
+    })
+    expect(failure).not.toBeNull()
+    expect(failure.kind).toBe('schema')
+    expect(failure.detail).toContain('reason')
+    expect(failure.raw).toBe('{"relevant": true}')
+  })
+
+  it('onFailure 콜백이 선택사항이다', async () => {
+    const llm = async () => '{"relevant": true, "reason": "r"}'
+    expect(await judgeRelevance(llm, 'x', paper)).toEqual({ relevant: true, reason: 'r' })
+  })
+})
