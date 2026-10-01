@@ -25,7 +25,12 @@ const Out = z.object({ relevant: z.boolean(), reason: z.string().min(1) })
 /** LLM이 코드블록으로 감싸는 일이 흔하다 */
 function fencedBody(raw: string): string {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
-  return (fenced?.[1] ?? raw).trim()
+  if (fenced?.[1] !== undefined) return fenced[1].trim()
+  // 코드블록 없이 앞뒤에 말을 붙이기도 한다("평가를 진행하겠습니다." — HISTORY 2026-10-01).
+  // 첫 `{`부터 마지막 `}`까지만 본다. 잘려서 닫히지 않은 응답은 그대로 JSON 실패로 남는다
+  const start = raw.indexOf('{')
+  const end = raw.lastIndexOf('}')
+  return start !== -1 && end > start ? raw.slice(start, end + 1) : raw.trim()
 }
 
 /**

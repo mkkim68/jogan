@@ -146,6 +146,20 @@ describe('deepEval', () => {
     expect(r?.evidence.map((e) => e.text)).toEqual(['12개 데이터셋에서 검증했다'])
   })
 
+  it('JSON 앞에 문장이 붙어 와도 본문을 읽는다 (2026-10-01 실측: "평가를 진행하겠습니다.")', async () => {
+    const llm = async () => `평가를 진행하겠습니다.\n\n${deepJson}`
+    const r = await deepEval(llm, paper, source)
+    expect(r).not.toBeNull()
+    expect(r?.stage3.reproducibility.value).toBe(0.8)
+  })
+
+  it('JSON이 닫히지 않은 잘린 응답은 여전히 json 실패다', async () => {
+    const kinds: string[] = []
+    const r = await deepEval(async () => `앞말\n${deepJson.slice(0, 40)}`, paper, source, (f) => kinds.push(f.kind))
+    expect(r).toBeNull()
+    expect(kinds).toEqual(['json'])
+  })
+
   it('스키마에 맞지 않으면 null이다 (그 논문만 건너뛴다)', async () => {
     const llm = async () => '{"reproducibility": "높음"}'
     expect(await deepEval(llm, paper, source)).toBeNull()

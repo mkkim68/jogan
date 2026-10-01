@@ -20,6 +20,11 @@ describe('judgeRelevance', () => {
     })
   })
 
+  it('JSON 앞에 문장이 붙어 와도 읽는다', async () => {
+    const llm = async () => '판정하겠습니다.\n{"relevant": false, "reason": "단어만 겹친다"}'
+    expect(await judgeRelevance(llm, '수면과 기억 공고화', paper)).toEqual({ relevant: false, reason: '단어만 겹친다' })
+  })
+
   it('코드블록으로 감싼 JSON도 벗겨서 읽는다', async () => {
     const llm = async () => '```json\n{"relevant": false, "reason": "단어만 겹친다"}\n```'
     expect(await judgeRelevance(llm, '수면과 기억 공고화', paper)).toEqual({ relevant: false, reason: '단어만 겹친다' })
