@@ -49,7 +49,9 @@ function anthropicLlm(): LlmFn {
   return async (prompt, input) => {
     const res = await client.messages.create({
       model: 'claude-sonnet-5',
-      max_tokens: 2048,
+      // 상한일 뿐 요금은 실제 출력만큼이다. 2048에서는 한국어 근거가 긴 본문 평가가 JSON 중간에
+      // 잘렸다(HISTORY 2026-10-01). 이 모델은 기본으로 thinking을 하고 그 토큰도 여기서 빠진다
+      max_tokens: 16000,
       system: prompt,
       messages: [{ role: 'user', content: input }],
     })
