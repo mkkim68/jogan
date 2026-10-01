@@ -257,6 +257,9 @@ importers:
 
   services/collector:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.68.0
+        version: 0.68.0(zod@4.6.5)
       '@jogan/core':
         specifier: workspace:*
         version: link:../../packages/core
