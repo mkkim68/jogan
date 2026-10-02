@@ -241,3 +241,19 @@ describe('findQuoteInSource (F4)', () => {
     expect(verifyQuote('We do not improve robustness at all', sentence)).toBe(true)
   })
 })
+
+describe('한글 수량어 오탐 (일반 단어)', () => {
+  it.each(['3분의 1', '３분의 1', '삼분의 일', '백분의 일', '백분의', '삼 분의 일', '한 편의 논문', '두 편', '세 종', '두 배', '두배', '다섯 개', '세 가지 방법', '수십 배 빨라졌다', '절반으로 줄였다', '열 번', '두 단계'])(
+    '수량어: %s',
+    (t) => expect(hasKoreanNumeral(t)).toBe(true),
+  )
+
+  it.each(['대부분의 벤치마크에서', '부분의', '성분의', '구분의', '한편, 이 방법은', '세종', '세계', '한국', '두께', '열정', '네트워크', '한계', '세부', '열쇠', '대부분', '한편으로는'])(
+    '일반 단어: %s',
+    (t) => expect(hasKoreanNumeral(t)).toBe(false),
+  )
+
+  it('일반 단어가 든 요약 문장은 통과한다', () => {
+    expect(verifyAgainstSource('대부분의 벤치마크에서 기존 방법보다 낫다', 'Most benchmarks improved.')).toBe(true)
+  })
+})
