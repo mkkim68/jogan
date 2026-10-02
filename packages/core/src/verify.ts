@@ -54,3 +54,47 @@ export function verifyAgainstSource(sentence: string, source: string): boolean {
 export function keepVerifiedEvidence(items: Evidence[], source: string): Evidence[] {
   return items.filter((e) => verifyAgainstSource(e.text, source))
 }
+
+/** 라틴 문자 토큰. 하이픈·점으로 이어진 이름(GPT-4, Mann-Whitney, v1.2)을 한 덩어리로 본다 */
+const LATIN_TOKEN = /[A-Za-z][A-Za-z0-9]*(?:[-.][A-Za-z0-9]+)*/g
+
+/**
+ * 문장에서 고유명사 후보를 뽑는다 — 대문자나 숫자가 섞인 라틴 토큰(BERT, ImageNet, GPT-4).
+ * 소문자만인 토큰(baseline, robust)은 일반 단어로 보고 뺀다.
+ * ADR 0002 D1의 **보조** 장치다: 요약 모델이 고유명사 목록에서 빠뜨린 것을 잡는다.
+ * 한글로 음차한 고유명사는 못 잡는다 — ADR 0002 「결과」의 알려진 한계.
+ */
+export function extractLatinTerms(text: string): string[] {
+  const found = new Set<string>()
+  for (const token of text.match(LATIN_TOKEN) ?? []) {
+    if (/[A-Z0-9]/.test(token)) found.add(token)
+  }
+  return [...found]
+}
+
+/** 대소문자와 공백만 정규화한다 — 철자가 다르면 다른 이름이다 */
+function normalizeForMatch(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, ' ')
+}
+
+/**
+ * 고유명사 대조 (CLAUDE.md 절대 규칙 1, ADR 0002 D1).
+ * 모델이 낸 `terms`와 문장에서 정규식으로 뽑은 라틴 토큰이 **전부** 원문에 있어야 한다.
+ * 판단(무엇이 고유명사인가)은 모델에 맡기되 대조 자체는 기계적이다.
+ */
+export function verifyTerms(sentence: string, terms: string[], source: string): boolean {
+  const normalizedSource = normalizeForMatch(source)
+  const all = new Set([...terms.map((t) => t.trim()).filter((t) => t.length > 0), ...extractLatinTerms(sentence)])
+  return [...all].every((t) => normalizedSource.includes(normalizeForMatch(t)))
+}
+
+/** 인용은 원문에 그대로 있어야 한다. 공백·대소문자 차이만 허용한다 */
+export function verifyQuote(quote: string, source: string): boolean {
+  const q = normalizeForMatch(quote).trim()
+  return q.length > 0 && normalizeForMatch(source).includes(q)
+}
+
+/** 요약 문장 하나의 검증: 숫자(정확 일치) && 고유명사 */
+export function verifySentence(sentence: string, terms: string[], source: string): boolean {
+  return verifyAgainstSource(sentence, source) && verifyTerms(sentence, terms, source)
+}

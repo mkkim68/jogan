@@ -1,6 +1,6 @@
 import type { Evidence } from './assessment'
 import { describe, expect, it } from 'vitest'
-import { keepVerifiedEvidence, verifyAgainstSource } from './verify'
+import { extractLatinTerms, keepVerifiedEvidence, verifyAgainstSource, verifyQuote, verifySentence, verifyTerms } from './verify'
 
 const source = 'We evaluate on 12 datasets with 3 seeds. Accuracy reaches 87.5% on ImageNet.'
 
@@ -72,5 +72,79 @@ describe('keepVerifiedEvidence', () => {
   it('전부 실패하면 빈 배열이다', () => {
     const items: Evidence[] = [{ stage: 3, verdict: 'pass', text: '99개를 썼다' }]
     expect(keepVerifiedEvidence(items, source)).toEqual([])
+  })
+})
+
+describe('extractLatinTerms', () => {
+  it('대문자나 숫자가 섞인 라틴 토큰만 고유명사 후보로 뽑는다', () => {
+    expect(extractLatinTerms('GPT-4와 ImageNet에서 baseline보다 높다')).toEqual(['GPT-4', 'ImageNet'])
+  })
+
+  it('같은 토큰은 한 번만', () => {
+    expect(extractLatinTerms('BERT와 BERT')).toEqual(['BERT'])
+  })
+
+  it('소문자 단어와 한글만 있으면 빈 배열', () => {
+    expect(extractLatinTerms('이 모델은 robust하다')).toEqual([])
+  })
+})
+
+describe('verifyTerms', () => {
+  const source = 'We evaluate on CodeJudgeBench and ImageNet using GPT-4.'
+
+  it('모델이 낸 고유명사가 원문에 있으면 통과', () => {
+    expect(verifyTerms('코드 판정 벤치마크에서 평가했다', ['CodeJudgeBench'], source)).toBe(true)
+  })
+
+  it('모델이 낸 고유명사가 원문에 없으면 실패', () => {
+    expect(verifyTerms('가짜 벤치마크에서 평가했다', ['FakeBench'], source)).toBe(false)
+  })
+
+  it('terms에 빠뜨려도 문장 속 라틴 토큰이 원문에 없으면 실패한다 (보조 정규식, ADR 0002 D1)', () => {
+    expect(verifyTerms('MMLU에서도 평가했다', [], source)).toBe(false)
+  })
+
+  it('대소문자·공백 차이는 같은 것으로 본다', () => {
+    expect(verifyTerms('imagenet 결과', ['imagenet'], source)).toBe(true)
+  })
+
+  it('고유명사가 없는 문장은 통과', () => {
+    expect(verifyTerms('한계 서술이 성실하다', [], source)).toBe(true)
+  })
+
+  it('빈 문자열 term은 무시한다', () => {
+    expect(verifyTerms('평가했다', ['  '], source)).toBe(true)
+  })
+})
+
+describe('verifyQuote', () => {
+  const source = 'Our method   improves accuracy\nby a wide margin.'
+
+  it('공백 차이만 있는 인용은 통과', () => {
+    expect(verifyQuote('Our method improves accuracy by a wide margin.', source)).toBe(true)
+  })
+
+  it('단어가 하나라도 다르면 실패', () => {
+    expect(verifyQuote('Our method doubles accuracy', source)).toBe(false)
+  })
+
+  it('빈 인용은 실패', () => {
+    expect(verifyQuote('   ', source)).toBe(false)
+  })
+})
+
+describe('verifySentence', () => {
+  const source = 'On ImageNet we reach 87.5 accuracy.'
+
+  it('숫자와 고유명사가 모두 원문에 있어야 통과', () => {
+    expect(verifySentence('ImageNet에서 87.5를 달성했다', ['ImageNet'], source)).toBe(true)
+  })
+
+  it('숫자가 틀리면 실패', () => {
+    expect(verifySentence('ImageNet에서 90.1을 달성했다', ['ImageNet'], source)).toBe(false)
+  })
+
+  it('고유명사가 틀리면 실패', () => {
+    expect(verifySentence('CIFAR에서 87.5를 달성했다', ['CIFAR'], source)).toBe(false)
   })
 })

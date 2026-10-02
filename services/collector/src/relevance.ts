@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { jsonBodyOf } from '@jogan/core'
 import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
 
@@ -36,17 +37,6 @@ export function relevanceJudgeVersion(): { model: string; promptHash: string } {
 
 const Out = z.object({ relevant: z.boolean(), reason: z.string().min(1) })
 
-/** LLM이 코드블록으로 감싸는 일이 흔하다 */
-function fencedBody(raw: string): string {
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (fenced?.[1] !== undefined) return fenced[1].trim()
-  // 코드블록 없이 앞뒤에 말을 붙이기도 한다("평가를 진행하겠습니다." — HISTORY 2026-10-01).
-  // 첫 `{`부터 마지막 `}`까지만 본다. 잘려서 닫히지 않은 응답은 그대로 JSON 실패로 남는다
-  const start = raw.indexOf('{')
-  const end = raw.lastIndexOf('}')
-  return start !== -1 && end > start ? raw.slice(start, end + 1) : raw.trim()
-}
-
 /**
  * 논문이 관심사의 연구 주제 자체를 다루는지 판정한다 (ADR 0001).
  * 응답을 못 읽거나 호출이 던지면 null — 호출자는 이 쌍을 **보류**한다(후보에도 캐시에도 넣지 않는다).
@@ -67,7 +57,7 @@ export async function judgeRelevance(
 
   let json: unknown
   try {
-    json = JSON.parse(fencedBody(raw))
+    json = JSON.parse(jsonBodyOf(raw))
   } catch (err) {
     onFailure?.({ kind: 'json', detail: String(err), raw })
     return null
