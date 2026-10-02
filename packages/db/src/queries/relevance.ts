@@ -72,3 +72,31 @@ export async function deleteCandidatesForPairs(
       ),
     )
 }
+
+/**
+ * 현재 판정 기준(모델·프롬프트 해시)의 **통과 판정이 없는** 후보 행을 지운다. 지운 행 수를 돌려준다.
+ *
+ * 매칭은 그날 관심사별 상위 20편만 판정하므로, 기준을 바꾼 뒤 상위 20편 밖으로 밀린 옛 통과 후보나
+ * 판정 도입 이전 후보(2026-09-29)는 탈락 처리로는 지워지지 않는다 — 그대로 두면 evaluator가 평가
+ * 비용을 쓰고 briefer가 배달할 수 있다. 후보는 "지금 기준으로 통과한 쌍"이라는 불변식을 여기서 지킨다.
+ * 판정이 보류된 쌍도 지워진다 — 다음 실행에서 다시 판정해 통과하면 다시 후보가 된다.
+ */
+export async function deleteCandidatesWithoutCurrentJudgment(userId: string, version: JudgeVersion): Promise<number> {
+  const deleted = await db
+    .delete(paperCandidates)
+    .where(
+      and(
+        eq(paperCandidates.userId, userId),
+        sql`not exists (
+          select 1 from ${relevanceJudgments} r
+          where r.interest_id = ${paperCandidates.interestId}
+            and r.paper_id = ${paperCandidates.paperId}
+            and r.relevant
+            and r.model = ${version.model}
+            and r.prompt_hash = ${version.promptHash}
+        )`,
+      ),
+    )
+    .returning({ paperId: paperCandidates.paperId })
+  return deleted.length
+}

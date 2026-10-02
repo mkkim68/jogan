@@ -420,6 +420,8 @@ export type MatchDeps = {
   loadJudgments?: (interestId: string, paperIds: string[]) => Promise<Map<string, boolean>>
   saveJudgments?: (rows: NewRelevanceJudgment[]) => Promise<void>
   deleteCandidates?: (userId: string, pairs: { interestId: string; paperId: string }[]) => Promise<void>
+  /** 현재 기준의 통과 판정이 없는 후보를 정리하고 지운 수를 돌려준다 */
+  pruneCandidates?: (userId: string) => Promise<number>
 }
 
 /**
@@ -473,6 +475,9 @@ export async function match(deps: MatchDeps = {}): Promise<number> {
     deps.deleteCandidates ??
     (async (userId: string, pairs: { interestId: string; paperId: string }[]) =>
       (await loadDb()).deleteCandidatesForPairs(userId, pairs))
+  const pruneCandidates =
+    deps.pruneCandidates ??
+    (async (userId: string) => (await loadDb()).deleteCandidatesWithoutCurrentJudgment(userId, version))
   const collectedFor = deps.collectedFor ?? (await loadDb()).todayInSeoul()
 
   const since = new Date(Date.now() - COLLECT_WINDOW_DAYS * DAY_MS)
@@ -549,8 +554,15 @@ export async function match(deps: MatchDeps = {}): Promise<number> {
           collectedFor,
         })),
       )
+      // 후보는 "지금 기준으로 통과한 쌍"이어야 한다. 오늘 상위 20편 밖으로 밀린 옛 기준 통과 후보와
+      // 판정 도입 이전 후보는 위의 탈락 처리로 지워지지 않는다 — 여기서 정리한다(저장 뒤에 해야
+      // 오늘 통과한 행을 지우지 않는다)
+      const pruned = await pruneCandidates(userId)
       total += selected.length
-      log('match', `사용자 ${userId}: 후보 ${selected.length}편 (탈락 쌍 ${rejected.length}개 정리)`)
+      log(
+        'match',
+        `사용자 ${userId}: 후보 ${selected.length}편 (탈락 쌍 ${rejected.length}개 넘김, 현재 기준 통과 판정 없는 옛 후보 ${pruned}편 정리)`,
+      )
     } catch (err) {
       if (err instanceof EmbeddingDimensionError) throw err
       failedUsers++
@@ -621,8 +633,13 @@ export async function runCollectorStages(
     const iso = newest.toISOString()
     // 겹침 구간만 훑은 실행은 저장된 워터마크보다 오래된 값을 들고 올 수 있다 —
     // 그대로 덮어쓰면 워터마크가 뒤로 밀려 같은 구간을 매번 다시 받는다.
-    advanced = await stages.advanceWatermark(iso)
-    log('fetch', advanced ? `워터마크 → ${iso}` : `워터마크 유지 (이번 실행의 최댓값 ${iso}은 기존보다 이르다)`)
+    try {
+      advanced = await stages.advanceWatermark(iso)
+      log('fetch', advanced ? `워터마크 → ${iso}` : `워터마크 유지 (이번 실행의 최댓값 ${iso}은 기존보다 이르다)`)
+    } catch (err) {
+      // 워터마크가 그대로면 다음 실행이 같은 구간을 다시 받을 뿐이다(upsert라 중복 없음) — 뒤 단계는 계속한다
+      fail('collect', err)
+    }
   }
 
   let embedded = { papers: 0, interests: 0, estimatedTokens: 0 }

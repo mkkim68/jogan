@@ -704,6 +704,59 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
     }
   })
 
+  it('현재 기준의 통과 판정이 없는 후보는 정리한다 (옛 기준 통과·판정 없음·탈락)', async () => {
+    const {
+      db, papers, users, addInterests, listInterests, upsertArxivPapers, upsertCandidates,
+      saveRelevanceJudgments, deleteCandidatesWithoutCurrentJudgment,
+    } = await import('../index')
+    const { eq, inArray } = await import('drizzle-orm')
+    const ids = ['__test.00014', '__test.00015', '__test.00016', '__test.00017']
+    const base = {
+      doi: null, authors: [{ name: '저자' }], abstract: '초록',
+      publishedAt: new Date('2026-09-20T00:00:00Z'), source: 'arxiv' as const,
+      venue: { name: 'arXiv', kind: 'preprint' as const }, pdfUrl: null, codeUrl: null, openAccess: true,
+    }
+    // 이 함수는 사용자의 후보를 **전부** 훑는다 — 시드 사용자(= 파이프라인이 실제로 쓰는 사용자)로
+    // 돌리면 진짜 후보가 지워진다(2026-10-02 실제로 86행을 지웠다). 반드시 일회용 사용자로 돌린다.
+    let tempUserId: string | undefined
+    try {
+      const [tempUser] = await db
+        .insert(users)
+        .values({ email: `__test_prune_${Date.now()}@example.com`, name: null, image: null })
+        .returning()
+      if (!tempUser) throw new Error('일회용 사용자 생성 실패')
+      tempUserId = tempUser.id
+      await addInterests(tempUser.id, ['__test_prune_interest'])
+      const [interest] = await listInterests(tempUser.id)
+
+      await upsertArxivPapers(ids.map((arxivId) => ({ ...base, arxivId, title: arxivId })))
+      const rows = await db.query.papers.findMany({ where: inArray(papers.arxivId, ids) })
+      const id = (a: string) => rows.find((r) => r.arxivId === a)?.id ?? ''
+      const [current, oldVersion, unjudged, rejected] = ids.map(id)
+      if (!current || !oldVersion || !unjudged || !rejected || !interest) throw new Error('테스트 준비 실패')
+
+      await upsertCandidates([current, oldVersion, unjudged, rejected].map((paperId) => ({
+        userId: tempUser.id, paperId, interestId: interest.id, relevance: 0.5, collectedFor: '2026-10-02',
+      })))
+      const now = { model: 'm', promptHash: 'new' }
+      await saveRelevanceJudgments([
+        { interestId: interest.id, paperId: current, relevant: true, reason: 'r', ...now },
+        { interestId: interest.id, paperId: oldVersion, relevant: true, reason: 'r', model: 'm', promptHash: 'old' },
+        { interestId: interest.id, paperId: rejected, relevant: false, reason: 'r', ...now },
+      ])
+
+      expect(await deleteCandidatesWithoutCurrentJudgment(tempUser.id, now)).toBe(3)
+      const left = (await db.query.paperCandidates.findMany({ where: (c, { eq: e }) => e(c.userId, tempUser.id) }))
+        .map((r) => r.paperId)
+      expect(left).toEqual([current])
+    } finally {
+      // 일회용 사용자를 지우면 관심사·후보·판정이 cascade로 함께 지워진다
+      const uid = tempUserId
+      if (uid) await safeCleanup(() => db.delete(users).where(eq(users.id, uid)))
+      await safeCleanup(() => db.delete(papers).where(inArray(papers.arxivId, ids)))
+    }
+  })
+
   it('탈락 쌍의 후보는 (사용자, 논문, 관심사)가 모두 일치할 때만 지운다', async () => {
     const {
       db, papers, paperCandidates, listInterests, upsertArxivPapers, upsertCandidates,

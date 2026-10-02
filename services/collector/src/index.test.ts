@@ -510,6 +510,7 @@ function relevanceDeps(over: Partial<MatchDeps> = {}): Partial<MatchDeps> {
     loadJudgments: async () => new Map(),
     saveJudgments: async () => {},
     deleteCandidates: async () => {},
+    pruneCandidates: async () => 0,
     ...over,
   }
 }
@@ -735,6 +736,22 @@ describe('match — 관련성 판정', () => {
     expect(order).toEqual(['delete', 'upsert'])
   })
 
+  it('저장 뒤 현재 기준의 통과 판정이 없는 옛 후보를 정리한다 (삭제 → 저장 → 정리 순)', async () => {
+    const order: string[] = []
+    const { logs, restore } = captureLogs()
+    try {
+      await match(base({
+        deleteCandidates: async () => { order.push('delete') },
+        upsertCandidates: async () => { order.push('upsert') },
+        pruneCandidates: async (userId) => { order.push(`prune:${userId}`); return 7 },
+      }))
+    } finally {
+      restore()
+    }
+    expect(order).toEqual(['delete', 'upsert', 'prune:u1'])
+    expect(logs.some((m) => m.includes('옛 후보 7편 정리'))).toBe(true)
+  })
+
   it('floor 아래 쌍은 judge를 부르지 않는다', async () => {
     const judged: string[] = []
     await match(base({
@@ -888,6 +905,19 @@ describe('runCollectorStages — 앞 단계가 실패해도 뒤 단계는 돈다
     )
     expect(calls).toEqual(['collect', 'embed', 'match'])
     expect(r.failures.map((f) => f.stage)).toEqual(['deadlock'])
+  })
+
+  it('워터마크 저장이 실패해도 임베딩·매칭은 돌고 수집 실패로 기록한다', async () => {
+    const calls: Calls = []
+    const r = await runCollectorStages(
+      ok(calls, {
+        advanceWatermark: async () => {
+          throw new Error('DB 연결 끊김')
+        },
+      }),
+    )
+    expect(calls).toEqual(['collect', 'embed', 'match'])
+    expect(r.failures).toEqual([{ stage: 'collect', error: 'Error: DB 연결 끊김' }])
   })
 
   it('여러 단계가 실패하면 순서대로 모두 기록한다', async () => {
