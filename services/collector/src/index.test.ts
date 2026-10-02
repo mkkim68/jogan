@@ -9,7 +9,10 @@ import {
 } from '@jogan/core'
 import { describe, expect, it } from 'vitest'
 import type { CandidateRow, NewPaper } from '@jogan/db'
-import { collect, embed, match, type InterestListRow, type MatchDeps, type PaperListRow } from './index'
+import {
+  collect, embed, match, runCollectorStages,
+  type CollectorStages, type InterestListRow, type MatchDeps, type PaperListRow,
+} from './index'
 import { paperEmbeddingInput } from './embed'
 import { relevanceJudgeVersion } from './relevance'
 
@@ -786,5 +789,115 @@ describe('match — 관련성 판정', () => {
       restore()
     }
     expect(logs.some((m) => m.includes('판정 3 · 통과 2 · 탈락 1 · 보류 1 · 캐시 1'))).toBe(true)
+  })
+})
+
+describe('runCollectorStages — 앞 단계가 실패해도 뒤 단계는 돈다 (ADR 0003)', () => {
+  type Calls = string[]
+  const ok = (calls: Calls, over: Partial<CollectorStages> = {}): CollectorStages => ({
+    collect: async () => {
+      calls.push('collect')
+      return { stored: 3, newest: new Date('2026-10-01T00:00:00Z'), hitMaxPerRun: false }
+    },
+    advanceWatermark: async (iso) => {
+      calls.push(`watermark:${iso}`)
+      return true
+    },
+    embed: async () => {
+      calls.push('embed')
+      return { papers: 3, interests: 0, estimatedTokens: 10 }
+    },
+    match: async () => {
+      calls.push('match')
+      return 5
+    },
+    ...over,
+  })
+
+  it('모두 성공하면 실패가 없고 워터마크가 전진한다', async () => {
+    const calls: Calls = []
+    const r = await runCollectorStages(ok(calls))
+    expect(r.failures).toEqual([])
+    expect(r.candidates).toBe(5)
+    expect(calls).toEqual(['collect', 'watermark:2026-10-01T00:00:00.000Z', 'embed', 'match'])
+  })
+
+  it('수집이 실패해도 임베딩·매칭은 돌고, 워터마크는 건드리지 않는다', async () => {
+    const calls: Calls = []
+    const r = await runCollectorStages(
+      ok(calls, {
+        collect: async () => {
+          throw new Error('arXiv 응답 429')
+        },
+      }),
+    )
+    expect(calls).toEqual(['embed', 'match'])
+    expect(r.failures).toEqual([{ stage: 'collect', error: 'Error: arXiv 응답 429' }])
+  })
+
+  it('임베딩이 실패해도 매칭은 이미 임베딩된 것으로 돈다', async () => {
+    const calls: Calls = []
+    const r = await runCollectorStages(
+      ok(calls, {
+        embed: async () => {
+          throw new Error('VOYAGE_API_KEY가 없다')
+        },
+      }),
+    )
+    expect(calls).toContain('match')
+    expect(r.failures.map((f) => f.stage)).toEqual(['embed'])
+  })
+
+  it('임베딩 차원 불일치는 즉시 던지고 매칭을 돌리지 않는다 (데이터가 이미 깨졌다)', async () => {
+    const calls: Calls = []
+    await expect(
+      runCollectorStages(
+        ok(calls, {
+          embed: async () => {
+            throw new EmbeddingDimensionError(EMBEDDING_DIM, 3)
+          },
+        }),
+      ),
+    ).rejects.toThrow(EmbeddingDimensionError)
+    expect(calls).not.toContain('match')
+  })
+
+  it('매칭 실패도 기록한다', async () => {
+    const calls: Calls = []
+    const r = await runCollectorStages(
+      ok(calls, {
+        match: async () => {
+          throw new Error('관련성 판정이 전량 실패했다')
+        },
+      }),
+    )
+    expect(r.failures.map((f) => f.stage)).toEqual(['match'])
+    expect(r.candidates).toBe(0)
+  })
+
+  it('수집 교착(상한 도달 + 워터마크 정체)은 매칭까지 끝난 뒤 실패로 기록한다', async () => {
+    const calls: Calls = []
+    const r = await runCollectorStages(
+      ok(calls, {
+        collect: async () => {
+          calls.push('collect')
+          return { stored: 3000, newest: new Date('2026-09-01T00:00:00Z'), hitMaxPerRun: true }
+        },
+        advanceWatermark: async () => false,
+      }),
+    )
+    expect(calls).toEqual(['collect', 'embed', 'match'])
+    expect(r.failures.map((f) => f.stage)).toEqual(['deadlock'])
+  })
+
+  it('여러 단계가 실패하면 순서대로 모두 기록한다', async () => {
+    const calls: Calls = []
+    const boom = (msg: string) => async (): Promise<never> => {
+      throw new Error(msg)
+    }
+    const r = await runCollectorStages(
+      ok(calls, { collect: boom('429'), embed: boom('voyage'), match: boom('anthropic') }),
+    )
+    expect(r.failures.map((f) => f.stage)).toEqual(['collect', 'embed', 'match'])
   })
 })

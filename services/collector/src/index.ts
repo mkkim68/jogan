@@ -575,6 +575,90 @@ export async function match(deps: MatchDeps = {}): Promise<number> {
   return total
 }
 
+export type CollectorStages = {
+  collect: () => Promise<{ stored: number; newest: Date | null; hitMaxPerRun: boolean }>
+  /** 워터마크를 전진시킨다. 기존 값보다 이르면 건드리지 않고 false */
+  advanceWatermark: (iso: string) => Promise<boolean>
+  embed: () => Promise<{ papers: number; interests: number; estimatedTokens: number }>
+  match: () => Promise<number>
+}
+
+export type StageFailure = { stage: 'collect' | 'embed' | 'match' | 'deadlock'; error: string }
+
+/**
+ * ①② 수집 → ③ 임베딩 → ④ 매칭·판정을 잇는다 (ADR 0003).
+ *
+ * **앞 단계가 실패해도 뒤 단계는 DB에 있는 것으로 계속 돈다.** arXiv가 429를 주는 날에도 어제까지
+ * 쌓인 후보는 판정돼야 사용자가 외부 API 상태와 상관없이 브리핑을 받는다(2026-10-02 실측). 실패는
+ * 모아서 돌려주고, 호출자(main)가 모든 단계가 끝난 뒤 exit 1로 알린다 — 조용히 넘어가지 않는다.
+ *
+ * 예외는 `EmbeddingDimensionError` 하나다. 벡터 차원이 설정과 다르면 데이터가 이미 깨졌다는 뜻이라,
+ * 그 위에서 매칭을 돌리면 틀린 후보를 저장한다. 즉시 다시 던진다.
+ */
+export async function runCollectorStages(
+  stages: CollectorStages,
+): Promise<{ failures: StageFailure[]; stored: number; candidates: number; embedded: { papers: number; interests: number; estimatedTokens: number } }> {
+  const failures: StageFailure[] = []
+  const fail = (stage: StageFailure['stage'], err: unknown) => {
+    failures.push({ stage, error: String(err) })
+    log(stage, `실패 — 다음 단계는 DB에 있는 것으로 계속한다: ${String(err)}`)
+  }
+
+  let stored = 0
+  let newest: Date | null = null
+  let hitMaxPerRun = false
+  let collected = false
+  try {
+    ;({ stored, newest, hitMaxPerRun } = await stages.collect())
+    collected = true
+  } catch (err) {
+    // 워터마크는 건드리지 않는다 — 저장이 확인되지 않은 구간을 건너뛰면 그 논문은 영구 유실이다
+    fail('collect', err)
+  }
+
+  let advanced = false
+  if (collected && newest) {
+    const iso = newest.toISOString()
+    // 겹침 구간만 훑은 실행은 저장된 워터마크보다 오래된 값을 들고 올 수 있다 —
+    // 그대로 덮어쓰면 워터마크가 뒤로 밀려 같은 구간을 매번 다시 받는다.
+    advanced = await stages.advanceWatermark(iso)
+    log('fetch', advanced ? `워터마크 → ${iso}` : `워터마크 유지 (이번 실행의 최댓값 ${iso}은 기존보다 이르다)`)
+  }
+
+  let embedded = { papers: 0, interests: 0, estimatedTokens: 0 }
+  try {
+    embedded = await stages.embed()
+  } catch (err) {
+    if (err instanceof EmbeddingDimensionError) throw err
+    fail('embed', err)
+  }
+
+  let candidates = 0
+  try {
+    candidates = await stages.match()
+  } catch (err) {
+    if (err instanceof EmbeddingDimensionError) throw err
+    fail('match', err)
+  }
+
+  // 상한에 닿았는데 워터마크가 전진하지 못했다면 수집이 제자리걸음이라는 뜻이다.
+  // 오름차순 조회는 매 실행이 겹침 구간(OVERLAP_MS)부터 소비하므로, 겹침 구간 하나가
+  // COLLECT_MAX_PER_RUN을 넘으면 매일 같은 구간만 다시 받는 교착이 된다.
+  // 이 검사는 embed·match가 끝난 뒤에 한다 — 알람을 울리자고 그날 브리핑을 막지 않는다.
+  if (collected && hitMaxPerRun && !advanced) {
+    failures.push({
+      stage: 'deadlock',
+      error:
+        newest === null
+          ? `수집 교착: 한 실행 상한(${COLLECT_MAX_PER_RUN}편)에 도달했는데 저장에 성공한 논문이 하나도 없다 — DB 쪽을 확인해야 한다.`
+          : `수집 교착: 한 실행 상한(${COLLECT_MAX_PER_RUN}편)에 도달했는데 워터마크가 전진하지 못했다. ` +
+            `겹침 구간(OVERLAP_MS)만으로 상한을 채우고 있다는 뜻이다 — 상한을 올리거나 겹침을 줄여야 한다.`,
+    })
+  }
+
+  return { failures, stored, candidates, embedded }
+}
+
 async function main() {
   const started = Date.now()
 
@@ -586,38 +670,23 @@ async function main() {
     return
   }
 
-  const { stored, newest, hitMaxPerRun } = await collect()
-  let advanced = false
-  if (newest) {
-    const iso = newest.toISOString()
-    // 겹침 구간만 훑은 실행은 저장된 워터마크보다 오래된 값을 들고 올 수 있다 —
-    // 그대로 덮어쓰면 워터마크가 뒤로 밀려 같은 구간을 매번 다시 받는다.
-    advanced = await (await loadDb()).advancePipelineState(WATERMARK_KEY, iso)
-    log('fetch', advanced ? `워터마크 → ${iso}` : `워터마크 유지 (이번 실행의 최댓값 ${iso}은 기존보다 이르다)`)
-  }
-  const embedded = await embed()
-  const candidates = await match()
+  const r = await runCollectorStages({
+    collect: () => collect(),
+    advanceWatermark: async (iso) => (await loadDb()).advancePipelineState(WATERMARK_KEY, iso),
+    embed: () => embed(),
+    match: () => match(),
+  })
   log(
     'done',
-    `논문 ${stored}편 저장 · 임베딩 논문 ${embedded.papers}편/관심사 ${embedded.interests}개 · ` +
-      `후보 ${candidates}편 · Voyage 추정 ${embedded.estimatedTokens}토큰(문자 수 ÷ 4 어림, 정확한 과금량 아님) · ` +
+    `논문 ${r.stored}편 저장 · 임베딩 논문 ${r.embedded.papers}편/관심사 ${r.embedded.interests}개 · ` +
+      `후보 ${r.candidates}편 · Voyage 추정 ${r.embedded.estimatedTokens}토큰(문자 수 ÷ 4 어림, 정확한 과금량 아님) · ` +
       `${((Date.now() - started) / 1000).toFixed(1)}초`,
   )
 
-  // 상한에 닿았는데 워터마크가 전진하지 못했다면 수집이 제자리걸음이라는 뜻이다.
-  // 오름차순 조회는 매 실행이 겹침 구간(OVERLAP_MS)부터 소비하므로, 겹침 구간 하나가
-  // COLLECT_MAX_PER_RUN을 넘으면 매일 같은 구간만 다시 받는 교착이 된다.
-  //
-  // 이 검사는 **embed·match가 끝난 뒤에** 한다. 앞에서 던지면 그날 저장한 논문이
-  // 임베딩되지 않아 모든 사용자의 브리핑이 비어버린다 — 알람을 울리자고 제품을
-  // 껐다 켜는 셈이다. 여기서 던지면 cron은 똑같이 종료 코드 1을 보고, 그날 브리핑은
-  // 정상적으로 나간다.
-  if (hitMaxPerRun && !advanced) {
+  if (r.failures.length > 0) {
     throw new Error(
-      newest === null
-        ? `수집 교착: 한 실행 상한(${COLLECT_MAX_PER_RUN}편)에 도달했는데 저장에 성공한 논문이 하나도 없다 — DB 쪽을 확인해야 한다.`
-        : `수집 교착: 한 실행 상한(${COLLECT_MAX_PER_RUN}편)에 도달했는데 워터마크가 전진하지 못했다. ` +
-          `겹침 구간(OVERLAP_MS)만으로 상한을 채우고 있다는 뜻이다 — 상한을 올리거나 겹침을 줄여야 한다.`,
+      `실패한 단계 ${r.failures.length}개 (나머지 단계는 DB에 있는 것으로 돌았다):\n` +
+        r.failures.map((f) => `  - ${f.stage}: ${f.error}`).join('\n'),
     )
   }
 }

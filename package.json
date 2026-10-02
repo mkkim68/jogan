@@ -12,7 +12,7 @@
     "pipeline:collect": "pnpm --filter @jogan/collector start",
     "pipeline:evaluate": "pnpm --filter @jogan/evaluator start",
     "pipeline:brief": "pnpm --filter @jogan/briefer start",
-    "pipeline:run": "pnpm pipeline:collect && pnpm pipeline:evaluate && pnpm pipeline:brief",
+    "pipeline:run": "bash scripts/pipeline-run.sh",
     "build": "pnpm --filter @jogan/web build",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck"
