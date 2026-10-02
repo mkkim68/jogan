@@ -1,0 +1,17 @@
+{
+  "id": "https://openalex.org/W4400000001",
+  "doi": "https://doi.org/10.1000/example",
+  "cited_by_count": 12,
+  "publication_year": 2026,
+  "primary_location": {
+    "source": {
+      "id": "https://openalex.org/S137773608",
+      "display_name": "Nature",
+      "type": "journal"
+    }
+  },
+  "authorships": [
+    { "author": { "id": "https://openalex.org/A1", "display_name": "Jane Doe" } },
+    { "author": { "id": "https://openalex.org/A2", "display_name": "John Roe" } }
+  ]
+}

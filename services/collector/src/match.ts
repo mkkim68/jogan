@@ -14,7 +14,7 @@ export type SelectedCandidate = { paperId: string; interestId: string; relevance
  * `stt`는 0.35대에 진짜 음성인식 논문이 나온 반면 `수면과 기억 공고화`는 0.39대에
  * 무관한 논문이 나왔다. 하나의 임계값으로 둘을 가를 수 없어서, 관심사마다 자기 기준
  * 상위 `perInterest`편을 가져가게 하고 `floor`는 쓰레기만 막는다. 애매한 것을 걸러내는
- * 일은 초록을 읽는 evaluator가 맡는다 — 이 단계는 재현율을 맡는다.
+ * 일은 관련성 판정 단계(`relevance.ts`)가 맡는다 — 이 함수에는 판정을 통과한 매치만 들어온다.
  *
  * 한 논문이 여러 관심사에 걸리면 가장 높은 relevance 하나만 남기고, interestId도 그 관심사의 것이다.
  *

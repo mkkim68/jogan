@@ -1,4 +1,5 @@
 export * from './constants'
+export * from './http'
 export * from './errors'
 export * from './paper'
 export * from './assessment'

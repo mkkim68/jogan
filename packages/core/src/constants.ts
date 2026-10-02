@@ -57,7 +57,8 @@ export const ARXIV_MIN_INTERVAL_MS = 3000
  * 실측(HISTORY.md 2026-09-29)에서 `stt`는 0.35대에 진짜 음성인식 논문이 나온 반면
  * `수면과 기억 공고화`는 0.39대에 무관한 논문이 나왔다. 하나의 임계값으로 이 둘을
  * 구분할 수 없다. 그래서 이 값은 "그 관심사에 정말 아무것도 없을 때 쓰레기를 막는"
- * 용도로만 남기고, 애매한 것을 걸러내는 일은 초록을 읽는 evaluator가 맡는다.
+ * 용도로만 남기고, 애매한 것을 걸러내는 일은 collector의 관련성 판정 단계
+ * (`services/collector/src/relevance.ts`, ADR 0001)가 맡는다.
  */
 export const RELEVANCE_FLOOR = 0.3
 /** 관심사 하나가 하루에 만드는 후보 수. 실질적인 선별자다. */
@@ -77,3 +78,16 @@ export const CANDIDATES_PER_USER = 150
 export const VOYAGE_MODEL = 'voyage-4'
 /** Voyage가 한 요청에 받는 최대 입력 수 */
 export const VOYAGE_BATCH_SIZE = 128
+
+/** ③b(본문 정밀 평가)로 넘길 편수. **첫 실행 결과를 보고 조정할 값이다** — 하루 2편 배달에 여유를 둔 추측값 */
+export const TRIAGE_DEEP_CUT = 6
+/** 이보다 짧은 초록은 메타데이터 부실로 본다 (글자 수) */
+export const STAGE1_MIN_ABSTRACT = 200
+/** OpenAlex polite pool 기준 요청 간격 */
+export const OPENALEX_MIN_INTERVAL_MS = 100
+/** 한 실행에서 평가할 논문 수 상한 */
+export const EVAL_MAX_PER_RUN = 200
+/** 중복 실행 가드. collector(610_927)와 달라야 한다 */
+export const EVALUATOR_LOCK_KEY = 610_928
+export const OPENALEX_API = 'https://api.openalex.org/works'
+export const CROSSREF_API = 'https://api.crossref.org/works'

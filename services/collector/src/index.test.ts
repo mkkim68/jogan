@@ -5,12 +5,16 @@ import {
   EmbeddingDimensionError,
   RELEVANCE_FLOOR,
   VOYAGE_BATCH_SIZE,
+  type HttpClient,
 } from '@jogan/core'
 import { describe, expect, it } from 'vitest'
 import type { CandidateRow, NewPaper } from '@jogan/db'
-import { collect, embed, match, type InterestListRow, type PaperListRow } from './index'
+import {
+  collect, embed, match, runCollectorStages,
+  type CollectorStages, type InterestListRow, type MatchDeps, type PaperListRow,
+} from './index'
 import { paperEmbeddingInput } from './embed'
-import type { HttpClient } from './http'
+import { relevanceJudgeVersion } from './relevance'
 
 /** 최소한의 유효한 entry 하나짜리 arXiv Atom 피드. `noUncheckedIndexedAccess` 때문에
  * 응답 큐 접근은 항상 `undefined` 가드를 거친다 (캐스팅 없음). */
@@ -493,6 +497,23 @@ describe('embed — VOYAGE_API_KEY 부재', () => {
 /** 임베딩 벡터 하나. 값 자체는 쓰이지 않고 matchPapers 스텁이 관심사별 결과를 돌려준다 */
 const interestVec = vec(EMBEDDING_DIM, 0.5)
 
+/** 매칭 결과 한 줄. 판정에 쓰이는 제목·초록을 함께 준다 */
+const pm = (paperId: string, relevance: number) => ({ paperId, relevance, title: `T ${paperId}`, abstract: `A ${paperId}` })
+
+/**
+ * 관련성 판정 의존성 전부. **빠뜨리면 기본 구현이 DB와 실제 Anthropic을 부른다** — index.ts가
+ * .env를 읽으므로 키가 있는 머신에서는 테스트가 돈을 쓴다. match 테스트는 항상 이걸 펼쳐 넣는다.
+ */
+function relevanceDeps(over: Partial<MatchDeps> = {}): Partial<MatchDeps> {
+  return {
+    judge: async () => ({ relevant: true, reason: '테스트' }),
+    loadJudgments: async () => new Map(),
+    saveJudgments: async () => {},
+    deleteCandidates: async () => {},
+    ...over,
+  }
+}
+
 function captureLogs(): { logs: string[]; restore: () => void } {
   const logs: string[] = []
   const originalLog = console.log
@@ -509,14 +530,15 @@ describe('match — 사용자 단위 격리', () => {
     let total: number
     try {
       total = await match({
+        ...relevanceDeps(),
         collectedFor: '2026-09-28',
         listUserIds: async () => ['u1', 'u2', 'u3'],
         listInterests: async (userId) => {
           // u2는 읽는 도중 관심사가 지워진 상황을 흉내 낸다
           if (userId === 'u2') throw new Error('시뮬레이션: interest_id FK 위반')
-          return [{ id: `${userId}-i1`, embedding: interestVec }]
+          return [{ id: `${userId}-i1`, label: '라벨', embedding: interestVec }]
         },
-        matchPapers: async () => [{ paperId: 'p1', relevance: 0.9 }],
+        matchPapers: async () => [pm('p1', 0.9)],
         upsertCandidates: async (rows) => {
           upserted.push(rows)
         },
@@ -537,10 +559,11 @@ describe('match — 사용자 단위 격리', () => {
     let total: number
     try {
       total = await match({
+        ...relevanceDeps(),
         collectedFor: '2026-09-28',
         listUserIds: async () => ['u1', 'u2'],
-        listInterests: async (userId) => [{ id: `${userId}-i1`, embedding: interestVec }],
-        matchPapers: async () => [{ paperId: 'p1', relevance: 0.8 }],
+        listInterests: async (userId) => [{ id: `${userId}-i1`, label: '라벨', embedding: interestVec }],
+        matchPapers: async () => [pm('p1', 0.8)],
         upsertCandidates: async (rows) => {
           const first = rows[0]
           if (first?.userId === 'u1') throw new Error('시뮬레이션: paper_candidates upsert 실패')
@@ -559,9 +582,10 @@ describe('match — 사용자 단위 격리', () => {
   it('차원 불일치는 사용자 격리 catch도 삼키지 않고 그대로 던진다', async () => {
     await expect(
       match({
+        ...relevanceDeps(),
         collectedFor: '2026-09-28',
         listUserIds: async () => ['u1', 'u2'],
-        listInterests: async (userId) => [{ id: `${userId}-i1`, embedding: interestVec }],
+        listInterests: async (userId) => [{ id: `${userId}-i1`, label: '라벨', embedding: interestVec }],
         matchPapers: async () => {
           throw new EmbeddingDimensionError(EMBEDDING_DIM, 3)
         },
@@ -576,13 +600,14 @@ describe('match — 사용자 단위 격리', () => {
     let total: number
     try {
       total = await match({
+        ...relevanceDeps(),
         collectedFor: '2026-09-28',
         listUserIds: async () => ['u1'],
         listInterests: async () => [
-          { id: 'i-null', embedding: null },
-          { id: 'i-ok', embedding: interestVec },
+          { id: 'i-null', label: '라벨', embedding: null },
+          { id: 'i-ok', label: '라벨', embedding: interestVec },
         ],
-        matchPapers: async () => [{ paperId: 'p1', relevance: 0.7 }],
+        matchPapers: async () => [pm('p1', 0.7)],
         upsertCandidates: async (rows) => {
           upserted.push(rows)
         },
@@ -600,12 +625,13 @@ describe('match — 사용자 단위 격리', () => {
   it('임계값 미만은 후보가 되지 않고, collectedFor는 주입값 그대로 쓰인다', async () => {
     const upserted: CandidateRow[] = []
     await match({
+      ...relevanceDeps(),
       collectedFor: '2026-09-28',
       listUserIds: async () => ['u1'],
-      listInterests: async () => [{ id: 'i1', embedding: interestVec }],
+      listInterests: async () => [{ id: 'i1', label: '라벨', embedding: interestVec }],
       matchPapers: async () => [
-        { paperId: 'high', relevance: 0.9 },
-        { paperId: 'low', relevance: RELEVANCE_FLOOR - 0.01 },
+        pm('high', 0.9),
+        pm('low', RELEVANCE_FLOOR - 0.01),
       ],
       upsertCandidates: async (rows) => {
         upserted.push(...rows)
@@ -614,5 +640,264 @@ describe('match — 사용자 단위 격리', () => {
 
     expect(upserted.map((r) => r.paperId)).toEqual(['high'])
     expect(upserted[0]?.collectedFor).toBe('2026-09-28')
+  })
+})
+
+describe('match — 관련성 판정', () => {
+  const base = (over: Partial<MatchDeps>): MatchDeps => ({
+    collectedFor: '2026-10-01',
+    listUserIds: async () => ['u1'],
+    listInterests: async () => [{ id: 'i1', label: '수면과 기억 공고화', embedding: interestVec }],
+    matchPapers: async () => [pm('p1', 0.9)],
+    upsertCandidates: async () => {},
+    ...relevanceDeps(),
+    ...over,
+  })
+
+  it('탈락한 쌍은 후보가 되지 않고, 판정은 캐시에 저장된다', async () => {
+    const upserted: CandidateRow[] = []
+    const saved: { paperId: string; relevant: boolean; model: string; promptHash?: string }[] = []
+    await match(base({
+      matchPapers: async () => [pm('keep', 0.9), pm('drop', 0.8)],
+      judge: async (_label, paper) => ({ relevant: paper.title === 'T keep', reason: 'r' }),
+      saveJudgments: async (rows) => { saved.push(...rows) },
+      upsertCandidates: async (rows) => { upserted.push(...rows) },
+    }))
+    expect(upserted.map((r) => r.paperId)).toEqual(['keep'])
+    expect(saved.map((s) => [s.paperId, s.relevant])).toEqual([['keep', true], ['drop', false]])
+    expect(saved.every((s) => s.model === 'claude-haiku-4-5-20251001')).toBe(true)
+    // 캐시 재사용 여부를 가르는 프롬프트 해시도 함께 저장한다
+    expect(saved.every((s) => s.promptHash === relevanceJudgeVersion().promptHash)).toBe(true)
+  })
+
+  it('한 관심사에서 탈락한 논문이 다른 관심사에서 통과하면 그 관심사로 선별된다', async () => {
+    const upserted: CandidateRow[] = []
+    await match(base({
+      listInterests: async () => [
+        { id: 'sleep', label: '수면', embedding: interestVec },
+        { id: 'agent', label: '에이전트 메모리', embedding: interestVec },
+      ],
+      // sleep 쪽 relevance가 더 높지만 sleep에서는 탈락한다
+      matchPapers: async () => [pm('p1', 0.9)],
+      judge: async (label) => ({ relevant: label === '에이전트 메모리', reason: 'r' }),
+      upsertCandidates: async (rows) => { upserted.push(...rows) },
+    }))
+    expect(upserted).toHaveLength(1)
+    expect(upserted[0]?.interestId).toBe('agent')
+  })
+
+  it('캐시에 있으면 judge를 부르지 않는다', async () => {
+    let calls = 0
+    const upserted: CandidateRow[] = []
+    await match(base({
+      matchPapers: async () => [pm('cached-yes', 0.9), pm('new', 0.8)],
+      loadJudgments: async () => new Map([['cached-yes', true]]),
+      judge: async () => { calls++; return { relevant: true, reason: 'r' } },
+      upsertCandidates: async (rows) => { upserted.push(...rows) },
+    }))
+    expect(calls).toBe(1)
+    expect(upserted.map((r) => r.paperId).sort()).toEqual(['cached-yes', 'new'])
+  })
+
+  it('판정 실패는 보류 — 후보도 아니고 캐시에도 들어가지 않으며 로그를 남긴다', async () => {
+    const upserted: CandidateRow[] = []
+    const saved: string[] = []
+    const { logs, restore } = captureLogs()
+    try {
+      await match(base({
+        matchPapers: async () => [pm('ok', 0.9), pm('fail', 0.8)],
+        judge: async (_l, paper) => (paper.title === 'T fail' ? null : { relevant: true, reason: 'r' }),
+        saveJudgments: async (rows) => { saved.push(...rows.map((r) => r.paperId)) },
+        upsertCandidates: async (rows) => { upserted.push(...rows) },
+      }))
+    } finally {
+      restore()
+    }
+    expect(upserted.map((r) => r.paperId)).toEqual(['ok'])
+    expect(saved).toEqual(['ok'])
+    expect(logs.some((m) => m.includes('판정 실패로 보류 i1/fail'))).toBe(true)
+  })
+
+  it('새로 탈락한 쌍과 캐시된 탈락 쌍 모두 deleteCandidates로 넘어가고, 삭제가 upsert보다 먼저다', async () => {
+    const order: string[] = []
+    let deleted: { interestId: string; paperId: string }[] = []
+    await match(base({
+      matchPapers: async () => [pm('old-drop', 0.9), pm('new-drop', 0.8), pm('keep', 0.7)],
+      loadJudgments: async () => new Map([['old-drop', false]]),
+      judge: async (_l, paper) => ({ relevant: paper.title === 'T keep', reason: 'r' }),
+      deleteCandidates: async (_u, pairs) => { order.push('delete'); deleted = pairs },
+      upsertCandidates: async () => { order.push('upsert') },
+    }))
+    expect(deleted).toEqual([
+      { interestId: 'i1', paperId: 'old-drop' },
+      { interestId: 'i1', paperId: 'new-drop' },
+    ])
+    expect(order).toEqual(['delete', 'upsert'])
+  })
+
+  it('floor 아래 쌍은 judge를 부르지 않는다', async () => {
+    const judged: string[] = []
+    await match(base({
+      matchPapers: async () => [pm('high', 0.9), pm('low', RELEVANCE_FLOOR - 0.01)],
+      judge: async (_l, paper) => { judged.push(paper.title); return { relevant: true, reason: 'r' } },
+    }))
+    expect(judged).toEqual(['T high'])
+  })
+
+  it('judge를 주입하지 않았는데 ANTHROPIC_API_KEY가 없으면 사용자 루프 전에 던진다', async () => {
+    const saved = process.env.ANTHROPIC_API_KEY
+    delete process.env.ANTHROPIC_API_KEY
+    let listed = false
+    try {
+      await expect(
+        match({
+          ...base({}),
+          judge: undefined,
+          listUserIds: async () => { listed = true; return ['u1'] },
+        }),
+      ).rejects.toThrow('ANTHROPIC_API_KEY')
+      expect(listed).toBe(false)
+    } finally {
+      if (saved !== undefined) process.env.ANTHROPIC_API_KEY = saved
+    }
+  })
+
+  it('판정을 시도했는데 전부 실패하면, 저장을 마친 뒤 던진다 (조용히 0편으로 끝내지 않는다)', async () => {
+    const upserted: CandidateRow[] = []
+    await expect(
+      match(base({
+        matchPapers: async () => [pm('cached', 0.9), pm('a', 0.8)],
+        loadJudgments: async () => new Map([['cached', true]]),
+        judge: async () => null,
+        upsertCandidates: async (rows) => { upserted.push(...rows) },
+      })),
+    ).rejects.toThrow('관련성 판정이 전량 실패')
+    // 캐시로 통과한 후보는 이미 저장됐다
+    expect(upserted.map((r) => r.paperId)).toEqual(['cached'])
+  })
+
+  it('관심사마다 판정·통과·탈락·보류·캐시 수를 로그로 남긴다', async () => {
+    const { logs, restore } = captureLogs()
+    try {
+      await match(base({
+        matchPapers: async () => [pm('c', 0.9), pm('y', 0.8), pm('n', 0.7), pm('f', 0.6)],
+        loadJudgments: async () => new Map([['c', true]]),
+        judge: async (_l, paper) =>
+          paper.title === 'T f' ? null : { relevant: paper.title === 'T y', reason: 'r' },
+      }))
+    } finally {
+      restore()
+    }
+    expect(logs.some((m) => m.includes('판정 3 · 통과 2 · 탈락 1 · 보류 1 · 캐시 1'))).toBe(true)
+  })
+})
+
+describe('runCollectorStages — 앞 단계가 실패해도 뒤 단계는 돈다 (ADR 0003)', () => {
+  type Calls = string[]
+  const ok = (calls: Calls, over: Partial<CollectorStages> = {}): CollectorStages => ({
+    collect: async () => {
+      calls.push('collect')
+      return { stored: 3, newest: new Date('2026-10-01T00:00:00Z'), hitMaxPerRun: false }
+    },
+    advanceWatermark: async (iso) => {
+      calls.push(`watermark:${iso}`)
+      return true
+    },
+    embed: async () => {
+      calls.push('embed')
+      return { papers: 3, interests: 0, estimatedTokens: 10 }
+    },
+    match: async () => {
+      calls.push('match')
+      return 5
+    },
+    ...over,
+  })
+
+  it('모두 성공하면 실패가 없고 워터마크가 전진한다', async () => {
+    const calls: Calls = []
+    const r = await runCollectorStages(ok(calls))
+    expect(r.failures).toEqual([])
+    expect(r.candidates).toBe(5)
+    expect(calls).toEqual(['collect', 'watermark:2026-10-01T00:00:00.000Z', 'embed', 'match'])
+  })
+
+  it('수집이 실패해도 임베딩·매칭은 돌고, 워터마크는 건드리지 않는다', async () => {
+    const calls: Calls = []
+    const r = await runCollectorStages(
+      ok(calls, {
+        collect: async () => {
+          throw new Error('arXiv 응답 429')
+        },
+      }),
+    )
+    expect(calls).toEqual(['embed', 'match'])
+    expect(r.failures).toEqual([{ stage: 'collect', error: 'Error: arXiv 응답 429' }])
+  })
+
+  it('임베딩이 실패해도 매칭은 이미 임베딩된 것으로 돈다', async () => {
+    const calls: Calls = []
+    const r = await runCollectorStages(
+      ok(calls, {
+        embed: async () => {
+          throw new Error('VOYAGE_API_KEY가 없다')
+        },
+      }),
+    )
+    expect(calls).toContain('match')
+    expect(r.failures.map((f) => f.stage)).toEqual(['embed'])
+  })
+
+  it('임베딩 차원 불일치는 즉시 던지고 매칭을 돌리지 않는다 (데이터가 이미 깨졌다)', async () => {
+    const calls: Calls = []
+    await expect(
+      runCollectorStages(
+        ok(calls, {
+          embed: async () => {
+            throw new EmbeddingDimensionError(EMBEDDING_DIM, 3)
+          },
+        }),
+      ),
+    ).rejects.toThrow(EmbeddingDimensionError)
+    expect(calls).not.toContain('match')
+  })
+
+  it('매칭 실패도 기록한다', async () => {
+    const calls: Calls = []
+    const r = await runCollectorStages(
+      ok(calls, {
+        match: async () => {
+          throw new Error('관련성 판정이 전량 실패했다')
+        },
+      }),
+    )
+    expect(r.failures.map((f) => f.stage)).toEqual(['match'])
+    expect(r.candidates).toBe(0)
+  })
+
+  it('수집 교착(상한 도달 + 워터마크 정체)은 매칭까지 끝난 뒤 실패로 기록한다', async () => {
+    const calls: Calls = []
+    const r = await runCollectorStages(
+      ok(calls, {
+        collect: async () => {
+          calls.push('collect')
+          return { stored: 3000, newest: new Date('2026-09-01T00:00:00Z'), hitMaxPerRun: true }
+        },
+        advanceWatermark: async () => false,
+      }),
+    )
+    expect(calls).toEqual(['collect', 'embed', 'match'])
+    expect(r.failures.map((f) => f.stage)).toEqual(['deadlock'])
+  })
+
+  it('여러 단계가 실패하면 순서대로 모두 기록한다', async () => {
+    const calls: Calls = []
+    const boom = (msg: string) => async (): Promise<never> => {
+      throw new Error(msg)
+    }
+    const r = await runCollectorStages(
+      ok(calls, { collect: boom('429'), embed: boom('voyage'), match: boom('anthropic') }),
+    )
+    expect(r.failures.map((f) => f.stage)).toEqual(['collect', 'embed', 'match'])
   })
 })

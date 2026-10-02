@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.68.0",
     "@jogan/core": "workspace:*",
     "@jogan/db": "workspace:*",
     "dotenv": "^18.0.2",

@@ -81,6 +81,29 @@ describe('entryToPaper', () => {
     expect(p.publishedAt.toISOString()).toBe('2026-09-24T17:58:43.000Z')
   })
 
+  it('카테고리를 @_term 배열로 매핑한다', () => {
+    const p = entryToPaper(entries[0])
+    expect(p?.categories).toEqual(['cs.CL', 'cs.LG'])
+  })
+
+  it('카테고리가 하나뿐이어도 배열로 만든다', () => {
+    const p = entryToPaper(entries[1])
+    expect(p?.categories).toEqual(['cs.SE'])
+  })
+
+  it('카테고리가 없으면 필드를 아예 넣지 않는다', () => {
+    const entry = {
+      id: 'http://arxiv.org/abs/2609.30250v2',
+      title: '제목',
+      summary: '초록',
+      published: '2026-09-25T00:00:00Z',
+      author: [{ name: 'Jane Doe' }],
+    }
+    const p = entryToPaper(entry)
+    expect(p).not.toBeNull()
+    expect(p && 'categories' in p).toBe(false)
+  })
+
   it('저자가 한 명이어도 배열로 만든다', () => {
     const p = entryToPaper(entries[1])
     expect(p?.authors).toEqual([{ name: 'Solo Researcher' }])

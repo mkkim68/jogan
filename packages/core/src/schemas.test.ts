@@ -76,7 +76,9 @@ describe('Assessment', () => {
   })
   it('점수 value는 null을 허용하되 reason은 필수다', () => {
     const ok = { ...assessment, stage3: { ...assessment.stage3, design: { value: null, reason: '판단 불가' } } }
-    expect(Assessment.parse(ok).stage3.design.value).toBeNull()
+    const parsedOk = Assessment.parse(ok)
+    if (parsedOk.stage3 === null) throw new Error('stage3가 null이면 안 된다')
+    expect(parsedOk.stage3.design.value).toBeNull()
     const bad = { ...assessment, stage3: { ...assessment.stage3, design: { value: null, reason: '' } } }
     expect(() => Assessment.parse(bad)).toThrow()
   })
