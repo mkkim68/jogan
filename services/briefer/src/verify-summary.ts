@@ -33,7 +33,19 @@ export function verifySummary(draft: SummaryDraft, source: string): VerifiedSumm
   const method = keep(draft.method, (s) => verifySentence(s.text, s.terms, source))
   const results = keep(draft.results, (r) => verifySentence(`${r.label} ${r.value}`, r.terms, source))
   const limitations = keep(draft.limitations, (l) => verifySentence(l.text, l.terms, source))
-  const quotes = keep(draft.quotes, (q) => verifyQuote(q.text, source))
+
+  // 인용은 text 검증이 필수이지만, locator는 검증 실패 시 '본문'으로 대체한다 (절대 규칙 1)
+  const quotes = draft.quotes
+    .filter((q) => {
+      const pass = verifyQuote(q.text, source)
+      if (!pass) dropped++
+      return pass
+    })
+    .map((q) => {
+      const locatorOk = verifySentence(q.locator, [], source)
+      if (!locatorOk) dropped++
+      return { text: q.text, locator: locatorOk ? q.locator : '본문' }
+    })
 
   return {
     oneLine: draft.oneLine.text,

@@ -54,4 +54,26 @@ describe('verifySummary', () => {
     const r = verifySummary({ ...good, results: [{ label: 'CIFAR 정확도', value: '87.5', terms: [] }] }, source)
     expect(r?.results).toEqual([])
   })
+
+  it('인용의 locator가 원문에 없으면 "본문"으로 대체하고 dropped를 센다', () => {
+    const r = verifySummary({
+      ...good,
+      quotes: [{ text: 'Our method improves accuracy by a wide margin.', locator: 'Section 12' }],
+    }, source)
+    expect(r).not.toBeNull()
+    expect(r?.quotes).toEqual([{ text: 'Our method improves accuracy by a wide margin.', locator: '본문' }])
+    // dropped는 원래 3 (method "5개", results "91.2", limitations "COCO") + 1 (locator "Section 12") = 4
+    expect(r?.dropped).toBe(4)
+  })
+
+  it('valid한 locator는 그대로 유지된다', () => {
+    const r = verifySummary({
+      ...good,
+      quotes: [{ text: 'Our method improves accuracy by a wide margin.', locator: '초록' }],
+    }, source)
+    expect(r).not.toBeNull()
+    expect(r?.quotes).toEqual([{ text: 'Our method improves accuracy by a wide margin.', locator: '초록' }])
+    // dropped는 원래 3 (method "5개", results "91.2", limitations "COCO")
+    expect(r?.dropped).toBe(3)
+  })
 })
