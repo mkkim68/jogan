@@ -1,7 +1,6 @@
 import { config } from 'dotenv'
 import { describe, expect, it } from 'vitest'
-import { OPENALEX_MIN_INTERVAL_MS, createHttpClient } from '@jogan/core'
-import { fetchFullText } from './fulltext'
+import { OPENALEX_MIN_INTERVAL_MS, createHttpClient, fetchFullText } from '@jogan/core'
 import { fetchOpenAlexByArxivId, parseOpenAlexWork } from './stage2'
 
 config({ path: ['.env', '../../.env'], quiet: true })

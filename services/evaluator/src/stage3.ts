@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Evidence, Score, Stage3 } from '@jogan/core'
+import { keepVerifiedEvidence, type Evidence, type Score, type Stage3 } from '@jogan/core'
 import { z } from 'zod'
-import { keepVerifiedEvidence } from './verify'
 
 export type LlmFn = (prompt: string, input: string) => Promise<string>
 

@@ -1,4 +1,4 @@
-import type { Evidence } from '@jogan/core'
+import type { Evidence } from './assessment'
 import { describe, expect, it } from 'vitest'
 import { keepVerifiedEvidence, verifyAgainstSource } from './verify'
 

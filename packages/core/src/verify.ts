@@ -1,4 +1,4 @@
-import type { Evidence } from '@jogan/core'
+import type { Evidence } from './assessment'
 
 /** 3, 87.5, 1,234 같은 것. 퍼센트 기호와 단위는 뗀 숫자만 본다 */
 const NUMBER = /\d[\d,]*(?:\.\d+)?/g

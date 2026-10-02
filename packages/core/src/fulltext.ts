@@ -1,4 +1,4 @@
-import type { HttpClient } from '@jogan/core'
+import type { HttpClient } from './http'
 
 const ENTITIES: Record<string, string> = {
   '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ',
