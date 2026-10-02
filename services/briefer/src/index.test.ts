@@ -1,5 +1,6 @@
 import type { BriefCandidate, NewBriefItemRow } from '@jogan/db'
 import { describe, expect, it } from 'vitest'
+import { BRIEF_MAX_SUMMARY_ATTEMPTS } from '@jogan/core'
 import { buildBriefs, readMinutesOf, type BriefDeps } from './index'
 import type { SummaryDraft, SummaryInput } from './summarize'
 
@@ -168,6 +169,7 @@ describe('buildBriefs', () => {
     await buildBriefs(d)
     expect(bodies).toEqual([])
   })
+
   it('제목에만 있는 고유명사를 쓴 한 줄 요약은 통과한다 (모델은 제목도 본다)', async () => {
     const { d, saved } = deps({
       listCandidates: async () => [cand('a', { title: 'T a: XNet', abstract: 'Abstract of a.' })],
@@ -176,5 +178,63 @@ describe('buildBriefs', () => {
     })
     await buildBriefs(d)
     expect(saved[0]?.items[0]?.oneLine).toBe('XNet을 제안했다')
+  })
+
+  it('사용자당 요약 시도는 상한까지만 — 전부 검증 실패해도 8회에서 멈춘다 (F3)', async () => {
+    let calls = 0
+    const { d, saved } = deps({
+      listCandidates: async () => Array.from({ length: 20 }, (_, i) => cand(`p${i}`)),
+      summarize: async (input) => {
+        calls++
+        return { ...okDraft('x'), oneLine: { text: `Fake${input.title}Net`, terms: ['FakeNet'] } }
+      },
+    })
+    const r = await buildBriefs(d)
+    expect(BRIEF_MAX_SUMMARY_ATTEMPTS).toBe(8)
+    expect(calls).toBe(8)
+    expect(saved).toHaveLength(0)
+    expect(r.empty).toBe(1)
+  })
+
+  it('verified 2 + notable 4가 섞이면 4편, 프리프린트는 정확히 2편 (절대 규칙 3)', async () => {
+    const { d, saved } = deps({
+      listCandidates: async () => [
+        cand('a', { track: 'notable', relevance: 0.9 }),
+        cand('b', { track: 'notable', relevance: 0.9 }),
+        cand('c', { track: 'notable', relevance: 0.9 }),
+        cand('d', { track: 'notable', relevance: 0.9 }),
+        cand('e', { track: 'verified', relevance: 0.1 }),
+        cand('f', { track: 'verified', relevance: 0.1 }),
+      ],
+    })
+    await buildBriefs(d)
+    const items = saved[0]?.items ?? []
+    expect(items).toHaveLength(4)
+    const notable = items.filter((i) => ['a', 'b', 'c', 'd'].includes(i.paperId))
+    expect(notable).toHaveLength(2)
+  })
+
+  it('평가 단계의 evidence 문장은 검증 원문이 아니다', async () => {
+    const { d, saved } = deps({
+      listCandidates: async () => [
+        cand('a', { evidence: [{ stage: 2, verdict: 'caution', text: 'ZetaNet 관련 주의' }] }),
+      ],
+      summarize: async () => ({ ...okDraft('a'), oneLine: { text: 'ZetaNet을 제안했다', terms: ['ZetaNet'] } }),
+    })
+    await buildBriefs(d)
+    expect(saved).toHaveLength(0)
+  })
+
+  it('본문이 없으면 인용 locator 대체값은 초록이다 (F7)', async () => {
+    const { d, saved } = deps({
+      listCandidates: async () => [cand('a', { abstract: 'Our method improves accuracy by a wide margin.' })],
+      fetchBody: async () => null,
+      summarize: async () => ({
+        ...okDraft('a'),
+        quotes: [{ text: 'Our method improves accuracy by a wide margin.', locator: '섹션 9' }],
+      }),
+    })
+    await buildBriefs(d)
+    expect(saved[0]?.items[0]?.quotes[0]?.locator).toBe('초록')
   })
 })

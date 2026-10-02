@@ -76,4 +76,33 @@ describe('verifySummary', () => {
     // dropped는 원래 3 (method "5개", results "91.2", limitations "COCO")
     expect(r?.dropped).toBe(3)
   })
+
+  it('숫자가 없는 results.value는 버린다 (F2)', () => {
+    const r = verifySummary({ ...good, results: [{ label: '정확도', value: '대폭 향상', terms: [] }] }, source)
+    expect(r?.results).toEqual([])
+  })
+
+  it('인용은 원문의 표기로 저장한다 (F4)', () => {
+    const r = verifySummary(
+      { ...good, quotes: [{ text: 'our method improves accuracy by a wide margin.', locator: '초록' }] },
+      source,
+    )
+    expect(r?.quotes[0]?.text).toBe('Our method improves accuracy by a wide margin.')
+  })
+
+  it('locator 검증 실패 시 대체값은 호출자가 정한다 (F7)', () => {
+    const bad = { ...good, quotes: [{ text: 'Our method improves accuracy by a wide margin.', locator: '섹션 9' }] }
+    expect(verifySummary(bad, source)?.quotes[0]?.locator).toBe('본문')
+    expect(verifySummary(bad, source, '초록')?.quotes[0]?.locator).toBe('초록')
+  })
+
+  it('공백뿐인 문장은 스키마에서 거부한다 (F8)', async () => {
+    const { SummaryDraft } = await import('./summarize')
+    const base = { oneLine: { text: 'x' }, whyItMatters: { text: 'y' } }
+    expect(SummaryDraft.safeParse(base).success).toBe(true)
+    expect(SummaryDraft.safeParse({ ...base, oneLine: { text: '   ' } }).success).toBe(false)
+    expect(SummaryDraft.safeParse({ ...base, results: [{ label: ' ', value: '1' }] }).success).toBe(false)
+    expect(SummaryDraft.safeParse({ ...base, limitations: [{ bySource: 'ai', text: ' ' }] }).success).toBe(false)
+    expect(SummaryDraft.safeParse({ ...base, quotes: [{ text: ' ', locator: '' }] }).success).toBe(false)
+  })
 })

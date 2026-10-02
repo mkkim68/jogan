@@ -15,15 +15,16 @@ export function loadSummaryPrompt(): string {
 }
 
 const Terms = z.array(z.string()).default([])
-const Sentence = z.object({ text: z.string().min(1), terms: Terms })
+const Text = z.string().trim().min(1)
+const Sentence = z.object({ text: Text, terms: Terms })
 
 export const SummaryDraft = z.object({
   oneLine: Sentence,
   whyItMatters: Sentence,
   method: z.array(Sentence).default([]),
-  results: z.array(z.object({ label: z.string().min(1), value: z.string().min(1), terms: Terms })).default([]),
-  limitations: z.array(z.object({ bySource: z.enum(['author', 'ai']), text: z.string().min(1), terms: Terms })).default([]),
-  quotes: z.array(z.object({ text: z.string().min(1), locator: z.string() })).default([]),
+  results: z.array(z.object({ label: Text, value: Text, terms: Terms })).default([]),
+  limitations: z.array(z.object({ bySource: z.enum(['author', 'ai']), text: Text, terms: Terms })).default([]),
+  quotes: z.array(z.object({ text: Text, locator: z.string() })).default([]),
 })
 export type SummaryDraft = z.infer<typeof SummaryDraft>
 

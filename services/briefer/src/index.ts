@@ -2,6 +2,7 @@ import { pathToFileURL } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
 import {
   BRIEFER_LOCK_KEY,
+  BRIEF_MAX_SUMMARY_ATTEMPTS,
   READ_CHARS_PER_MINUTE,
   createHttpClient,
   fetchFullText,
@@ -125,8 +126,14 @@ export async function buildBriefs(
       const accepted: BriefCandidate[] = []
       const items: NewBriefItemRow[] = []
       let dropped = 0
+      let userAttempts = 0
       for (const c of ranked) {
         if (!fitsConstraints(accepted, c)) continue
+        if (userAttempts >= BRIEF_MAX_SUMMARY_ATTEMPTS) {
+          log('brief', `사용자 ${userId}: 요약 시도 상한 ${BRIEF_MAX_SUMMARY_ATTEMPTS}회에 도달해 멈춘다`)
+          break
+        }
+        userAttempts++
         const body = c.arxivId === null ? null : await fetchBody(c.arxivId).catch(() => null)
         attempted++
         let draft: SummaryDraft | null
@@ -139,7 +146,7 @@ export async function buildBriefs(
         if (draft === null) continue
         answered++
         // 본문을 못 받았으면 초록이 원문이다. 모델은 제목도 보므로 제목에만 있는 이름도 검증 대상 원문이다
-        const verified = verifySummary(draft, `${c.title}\n\n${body ?? c.abstract}`)
+        const verified = verifySummary(draft, `${c.title}\n\n${body ?? c.abstract}`, body === null ? '초록' : '본문')
         if (verified === null) {
           log('verify', `한 줄 요약 또는 "그래서 뭐?"가 원문과 맞지 않아 제외 ${c.paperId}`)
           continue
