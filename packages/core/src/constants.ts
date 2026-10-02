@@ -89,5 +89,21 @@ export const OPENALEX_MIN_INTERVAL_MS = 100
 export const EVAL_MAX_PER_RUN = 200
 /** 중복 실행 가드. collector(610_927)와 달라야 한다 */
 export const EVALUATOR_LOCK_KEY = 610_928
+
+/** 브리핑 한 부의 편수 (DESIGN.md "오늘 4편") */
+export const BRIEF_SIZE = 4
+/** 심사 전 프리프린트(notable 트랙) 하루 최대 편수 — CLAUDE.md 절대 규칙 3 */
+export const BRIEF_MAX_PREPRINTS = 2
+/** 한 관심사가 지면을 독식하지 않게 (ADR 0002 D3) */
+export const BRIEF_MAX_PER_INTEREST = 2
+/** 신뢰도 트랙 가중 (ADR 0002 D2) */
+export const TRUST_TRACK_WEIGHT = { verified: 1, notable: 0.7 } as const
+/** ③단계가 없는 논문의 평균 자리 고정값 (ADR 0002 D2) */
+export const TRUST_WITHOUT_STAGE3 = 0.3
+/** 읽기 시간 어림 — 한국어 분당 글자 수 (ADR 0002 D7) */
+export const READ_CHARS_PER_MINUTE = 500
+/** briefer 중복 실행 가드용 advisory lock 키 (collector·evaluator와 다른 값) */
+export const BRIEFER_LOCK_KEY = 610_929
+
 export const OPENALEX_API = 'https://api.openalex.org/works'
 export const CROSSREF_API = 'https://api.crossref.org/works'
