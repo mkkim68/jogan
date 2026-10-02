@@ -65,6 +65,8 @@ export async function listBriefCandidates(userId: string): Promise<BriefCandidat
       and(
         eq(paperCandidates.userId, userId),
         isNull(papers.mergedInto),
+        // ①단계(규칙) 실패 논문은 평가 행이 남아 있어도 배달하지 않는다 (PRD §3 ①)
+        sql`(${assessments.stage1}->>'passed')::boolean = true`,
         sql`not exists (
           select 1 from ${briefItems} bi join ${briefs} b on b.id = bi.brief_id
           where b.user_id = ${userId} and bi.paper_id = ${paperCandidates.paperId}
