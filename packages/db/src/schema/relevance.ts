@@ -17,6 +17,12 @@ export const relevanceJudgments = pgTable(
     reason: text('reason').notNull(),
     /** 판정한 모델 id — 모델을 바꾸면 어느 판정이 옛 모델 것인지 가려낼 수 있게 */
     model: text('model').notNull(),
+    /**
+     * 판정에 쓴 프롬프트(`services/collector/prompts/relevance.md`)의 해시. 캐시는 모델과 이 값이
+     * 모두 같을 때만 재사용한다 — 판정 기준을 바꾸면 손으로 캐시를 비우지 않아도 다시 묻는다.
+     * 이 컬럼 도입 전 판정은 빈 문자열이라 어떤 현재 프롬프트와도 맞지 않는다.
+     */
+    promptHash: text('prompt_hash').notNull().default(''),
     judgedAt: timestamp('judged_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.interestId, t.paperId] })],

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { judgeRelevance, loadRelevancePrompt, type JudgeFailure } from './relevance'
+import { judgeRelevance, loadRelevancePrompt, promptHash, relevanceJudgeVersion, type JudgeFailure } from './relevance'
 
 const paper = { title: 'Sleep spindles and memory', abstract: 'We record sleep spindles in 40 adults.' }
 
@@ -8,6 +8,21 @@ describe('loadRelevancePrompt', () => {
     const p = loadRelevancePrompt()
     expect(p).toContain('relevant')
     expect(p.length).toBeGreaterThan(200)
+  })
+})
+
+describe('판정 버전', () => {
+  it('프롬프트 내용이 같으면 해시가 같고, 한 글자만 달라도 바뀐다', () => {
+    expect(promptHash('기준 A')).toBe(promptHash('기준 A'))
+    expect(promptHash('기준 A')).not.toBe(promptHash('기준 B'))
+    expect(promptHash('기준 A')).toMatch(/^[0-9a-f]{12}$/)
+  })
+
+  it('현재 버전은 판정 모델과 프롬프트 파일의 해시다', () => {
+    expect(relevanceJudgeVersion()).toEqual({
+      model: 'claude-haiku-4-5-20251001',
+      promptHash: promptHash(loadRelevancePrompt()),
+    })
   })
 })
 

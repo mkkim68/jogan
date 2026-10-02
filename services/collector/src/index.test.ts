@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
 import type { CandidateRow, NewPaper } from '@jogan/db'
 import { collect, embed, match, type InterestListRow, type MatchDeps, type PaperListRow } from './index'
 import { paperEmbeddingInput } from './embed'
+import { relevanceJudgeVersion } from './relevance'
 
 /** 최소한의 유효한 entry 하나짜리 arXiv Atom 피드. `noUncheckedIndexedAccess` 때문에
  * 응답 큐 접근은 항상 `undefined` 가드를 거친다 (캐스팅 없음). */
@@ -652,7 +653,7 @@ describe('match — 관련성 판정', () => {
 
   it('탈락한 쌍은 후보가 되지 않고, 판정은 캐시에 저장된다', async () => {
     const upserted: CandidateRow[] = []
-    const saved: { paperId: string; relevant: boolean; model: string }[] = []
+    const saved: { paperId: string; relevant: boolean; model: string; promptHash?: string }[] = []
     await match(base({
       matchPapers: async () => [pm('keep', 0.9), pm('drop', 0.8)],
       judge: async (_label, paper) => ({ relevant: paper.title === 'T keep', reason: 'r' }),
@@ -662,6 +663,8 @@ describe('match — 관련성 판정', () => {
     expect(upserted.map((r) => r.paperId)).toEqual(['keep'])
     expect(saved.map((s) => [s.paperId, s.relevant])).toEqual([['keep', true], ['drop', false]])
     expect(saved.every((s) => s.model === 'claude-haiku-4-5-20251001')).toBe(true)
+    // 캐시 재사용 여부를 가르는 프롬프트 해시도 함께 저장한다
+    expect(saved.every((s) => s.promptHash === relevanceJudgeVersion().promptHash)).toBe(true)
   })
 
   it('한 관심사에서 탈락한 논문이 다른 관심사에서 통과하면 그 관심사로 선별된다', async () => {

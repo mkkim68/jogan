@@ -20,7 +20,7 @@ import { z } from 'zod'
 import { buildArxivQueryUrl, dedupeByArxivId, entryToPaper, fetchArxivPage, parseArxivFeed, stripVersion } from './arxiv'
 import { embedTexts, paperEmbeddingInput } from './embed'
 import { selectBestPerPaper, type InterestMatches } from './match'
-import { createRelevanceLlm, judgeRelevance, RELEVANCE_MODEL, type Judgment, type LlmUsage } from './relevance'
+import { createRelevanceLlm, judgeRelevance, relevanceJudgeVersion, type Judgment, type LlmUsage } from './relevance'
 
 // @jogan/db를 타입으로만 import하게 되면서(기본 구현은 호출 시점 동적 import) 그 부작용으로
 // 딸려오던 dotenv 로드가 사라졌다. VOYAGE_API_KEY는 여기서 직접 읽으므로 명시적으로 불러온다.
@@ -461,9 +461,12 @@ export async function match(deps: MatchDeps = {}): Promise<number> {
     (async (embedding: number[], since: Date, limit: number) =>
       (await loadDb()).matchPapersForInterest(embedding, since, limit))
   const upsert = deps.upsertCandidates ?? (async (rows: CandidateRow[]) => (await loadDb()).upsertCandidates(rows))
+  // 캐시는 같은 모델·같은 프롬프트로 낸 판정만 재사용한다
+  const version = relevanceJudgeVersion()
   const loadJudgments =
     deps.loadJudgments ??
-    (async (interestId: string, paperIds: string[]) => (await loadDb()).listRelevanceJudgments(interestId, paperIds))
+    (async (interestId: string, paperIds: string[]) =>
+      (await loadDb()).listRelevanceJudgments(interestId, paperIds, version))
   const saveJudgments =
     deps.saveJudgments ?? (async (rows: NewRelevanceJudgment[]) => (await loadDb()).saveRelevanceJudgments(rows))
   const deleteCandidates =
@@ -513,7 +516,7 @@ export async function match(deps: MatchDeps = {}): Promise<number> {
             }
             answered++
             relevant = j.relevant
-            fresh.push({ interestId: it.id, paperId: m.paperId, relevant: j.relevant, reason: j.reason, model: RELEVANCE_MODEL })
+            fresh.push({ interestId: it.id, paperId: m.paperId, relevant: j.relevant, reason: j.reason, ...version })
           } else {
             n.cached++
           }

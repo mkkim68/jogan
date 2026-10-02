@@ -4,16 +4,30 @@ import { paperCandidates, relevanceJudgments } from '../schema'
 
 export type NewRelevanceJudgment = typeof relevanceJudgments.$inferInsert
 
-/** 이 관심사에 대해 이미 판정한 논문들. 키가 없으면 아직 판정하지 않은(또는 보류된) 쌍이다 */
+/** 판정 기준의 정체. 캐시는 둘 다 같을 때만 재사용한다 */
+export type JudgeVersion = { model: string; promptHash: string }
+
+/**
+ * 이 관심사에 대해 **같은 모델·같은 프롬프트로** 이미 판정한 논문들.
+ * 키가 없으면 아직 판정하지 않았거나, 보류됐거나, 옛 기준으로 판정한 쌍이다.
+ */
 export async function listRelevanceJudgments(
   interestId: string,
   paperIds: string[],
+  version: JudgeVersion,
 ): Promise<Map<string, boolean>> {
   if (paperIds.length === 0) return new Map()
   const rows = await db
     .select({ paperId: relevanceJudgments.paperId, relevant: relevanceJudgments.relevant })
     .from(relevanceJudgments)
-    .where(and(eq(relevanceJudgments.interestId, interestId), inArray(relevanceJudgments.paperId, paperIds)))
+    .where(
+      and(
+        eq(relevanceJudgments.interestId, interestId),
+        inArray(relevanceJudgments.paperId, paperIds),
+        eq(relevanceJudgments.model, version.model),
+        eq(relevanceJudgments.promptHash, version.promptHash),
+      ),
+    )
   return new Map(rows.map((r) => [r.paperId, r.relevant]))
 }
 
@@ -29,6 +43,7 @@ export async function saveRelevanceJudgments(rows: NewRelevanceJudgment[]): Prom
         relevant: sql`excluded.relevant`,
         reason: sql`excluded.reason`,
         model: sql`excluded.model`,
+        promptHash: sql`excluded.prompt_hash`,
         judgedAt: sql`now()`,
       },
     })

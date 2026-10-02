@@ -676,21 +676,28 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
       expect(interest).toBeDefined()
       if (!paper || !interest) return
 
+      const v1 = { model: 'm1', promptHash: 'p1' }
+      const v2 = { model: 'm2', promptHash: 'p2' }
+
       // 빈 입력은 DB를 부르지 않고 빈 Map
-      expect((await listRelevanceJudgments(interest.id, [])).size).toBe(0)
+      expect((await listRelevanceJudgments(interest.id, [], v1)).size).toBe(0)
       await saveRelevanceJudgments([])
 
       await saveRelevanceJudgments([
-        { interestId: interest.id, paperId: paper.id, relevant: false, reason: '단어만 겹친다', model: 'm1' },
+        { interestId: interest.id, paperId: paper.id, relevant: false, reason: '단어만 겹친다', ...v1 },
       ])
-      expect((await listRelevanceJudgments(interest.id, [paper.id])).get(paper.id)).toBe(false)
+      expect((await listRelevanceJudgments(interest.id, [paper.id], v1)).get(paper.id)).toBe(false)
+      // 모델이나 프롬프트가 다른 판정은 캐시로 쓰지 않는다 — 기준이 바뀌었으면 다시 묻는다
+      expect((await listRelevanceJudgments(interest.id, [paper.id], { ...v1, promptHash: 'p-new' })).size).toBe(0)
+      expect((await listRelevanceJudgments(interest.id, [paper.id], { ...v1, model: 'm-new' })).size).toBe(0)
 
       await saveRelevanceJudgments([
-        { interestId: interest.id, paperId: paper.id, relevant: true, reason: '주제가 같다', model: 'm2' },
+        { interestId: interest.id, paperId: paper.id, relevant: true, reason: '주제가 같다', ...v2 },
       ])
-      const after = await listRelevanceJudgments(interest.id, [paper.id])
+      const after = await listRelevanceJudgments(interest.id, [paper.id], v2)
       expect(after.size).toBe(1)
       expect(after.get(paper.id)).toBe(true)
+      expect((await listRelevanceJudgments(interest.id, [paper.id], v1)).size).toBe(0)
     } finally {
       // relevance_judgments는 papers에 on delete cascade라 논문만 지우면 같이 지워진다
       await db.delete(papers).where(eq(papers.arxivId, arxivId))
