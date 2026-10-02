@@ -840,6 +840,102 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
       await db.delete(papers).where(eq(papers.arxivId, arxivId))
     }
   })
+
+  it('브리핑 후보는 통과 판정 ∩ 평가됨 − 이미 배달된 논문이다', async () => {
+    const {
+      db, papers, users, addInterests, listInterests, upsertArxivPapers, upsertCandidates,
+      upsertAssessment, saveRelevanceJudgments, listBriefCandidates, insertBrief,
+    } = await import('../index')
+    const { eq, inArray } = await import('drizzle-orm')
+    const ids = { pass: '__test.00011', reject: '__test.00012', unassessed: '__test.00013' }
+    const base = {
+      doi: null, authors: [{ name: '저자' }], abstract: '초록',
+      publishedAt: new Date('2026-09-20T00:00:00Z'), source: 'arxiv' as const,
+      venue: { name: 'arXiv', kind: 'preprint' as const }, pdfUrl: null, codeUrl: null, openAccess: true,
+    }
+    const assessment = (paperId: string) => ({
+      paperId, track: 'notable' as const, field: 'cs' as const,
+      stage1: { passed: true, retracted: false, predatoryVenue: false, paperMillSignals: [] },
+      stage2: { venueTier: null, reviewStatus: 'preprint', reviewScore: null, authorTrackRecord: 0 },
+      stage3: null, stage4: null,
+      evidence: [{ stage: 2 as const, verdict: 'caution' as const, text: '심사 전 프리프린트' }],
+      caveats: [],
+    })
+    let tempUserId: string | undefined
+    try {
+      const [tempUser] = await db
+        .insert(users)
+        .values({ email: `__test_brief_${Date.now()}@example.com`, name: null, image: null })
+        .returning()
+      if (!tempUser) throw new Error('일회용 사용자 생성 실패')
+      tempUserId = tempUser.id
+      await addInterests(tempUser.id, ['__test_brief_interest'])
+      const [interest] = await listInterests(tempUser.id)
+
+      await upsertArxivPapers(Object.values(ids).map((arxivId) => ({ ...base, arxivId, title: `후보 ${arxivId}` })))
+      const rows = await db.query.papers.findMany({ where: inArray(papers.arxivId, Object.values(ids)) })
+      const byArxiv = new Map(rows.map((r) => [r.arxivId, r.id]))
+      const pass = byArxiv.get(ids.pass)
+      const reject = byArxiv.get(ids.reject)
+      const unassessed = byArxiv.get(ids.unassessed)
+      if (!pass || !reject || !unassessed || !interest) throw new Error('테스트 준비 실패')
+
+      await upsertCandidates([pass, reject, unassessed].map((paperId) => ({
+        userId: tempUser.id, paperId, interestId: interest.id, relevance: 0.5, collectedFor: '2026-10-02',
+      })))
+      await upsertAssessment(assessment(pass))
+      await upsertAssessment(assessment(reject))
+      const v = { model: 'm', promptHash: 'h' }
+      await saveRelevanceJudgments([
+        { interestId: interest.id, paperId: pass, relevant: true, reason: 'r', ...v },
+        { interestId: interest.id, paperId: reject, relevant: false, reason: 'r', ...v },
+        { interestId: interest.id, paperId: unassessed, relevant: true, reason: 'r', ...v },
+      ])
+
+      const before = await listBriefCandidates(tempUser.id)
+      expect(before.map((c) => c.paperId)).toEqual([pass]) // 탈락·미평가는 빠진다
+      expect(before[0]?.title).toBe(`후보 ${ids.pass}`)
+      expect(before[0]?.track).toBe('notable')
+      expect(before[0]?.interestId).toBe(interest.id)
+
+      await insertBrief(
+        { userId: tempUser.id, date: '2099-01-02', issueNumber: 1, readMinutes: 1 },
+        [{
+          position: 0, paperId: pass, interestId: interest.id, oneLine: '한 줄', whyItMatters: '왜',
+          method: '', results: [], limitations: [], quotes: [], isSerendipity: false,
+        }],
+      )
+      expect(await listBriefCandidates(tempUser.id)).toEqual([]) // 이미 배달
+    } finally {
+      // 일회용 사용자를 지우면 브리핑(→ brief_items)·관심사·후보·판정이 cascade로 지워진다.
+      // brief_items.paper_id에는 cascade가 없으므로 사용자를 먼저 지우고 논문을 지운다
+      const uid = tempUserId
+      if (uid) await safeCleanup(() => db.delete(users).where(eq(users.id, uid)))
+      await safeCleanup(() => db.delete(papers).where(inArray(papers.arxivId, Object.values(ids))))
+    }
+  })
+
+  it('같은 날 브리핑 여부와 다음 호수', async () => {
+    const { db, users, hasBriefForDate, nextIssueNumber, insertBrief } = await import('../index')
+    const { eq } = await import('drizzle-orm')
+    let tempUserId: string | undefined
+    try {
+      const [tempUser] = await db
+        .insert(users)
+        .values({ email: `__test_issue_${Date.now()}@example.com`, name: null, image: null })
+        .returning()
+      if (!tempUser) throw new Error('일회용 사용자 생성 실패')
+      tempUserId = tempUser.id
+      expect(await hasBriefForDate(tempUser.id, '2099-01-01')).toBe(false)
+      expect(await nextIssueNumber(tempUser.id)).toBe(1)
+      await insertBrief({ userId: tempUser.id, date: '2099-01-01', issueNumber: 1, readMinutes: 2 }, [])
+      expect(await hasBriefForDate(tempUser.id, '2099-01-01')).toBe(true)
+      expect(await nextIssueNumber(tempUser.id)).toBe(2)
+    } finally {
+      const uid = tempUserId
+      if (uid) await safeCleanup(() => db.delete(users).where(eq(users.id, uid)))
+    }
+  })
 })
 
 afterAll(async () => {
