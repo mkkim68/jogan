@@ -1,6 +1,6 @@
 import type { Evidence } from './assessment'
 import { describe, expect, it } from 'vitest'
-import { extractLatinTerms, keepVerifiedEvidence, verifyAgainstSource, verifyQuote, verifySentence, verifyTerms } from './verify'
+import { extractLatinTerms, findQuoteInSource, hasKoreanNumeral, keepVerifiedEvidence, verifyAgainstSource, verifyQuote, verifySentence, verifyTerms } from './verify'
 
 const source = 'We evaluate on 12 datasets with 3 seeds. Accuracy reaches 87.5% on ImageNet.'
 
@@ -185,5 +185,59 @@ describe('고유명사 경계·유니코드 (검증 우회 방지)', () => {
 
   it('원문의 비분리 하이픈(U+2011)도 같은 하이픈으로 본다', () => {
     expect(verifyTerms('GPT-4 사용', ['GPT-4'], 'We use GPT\u20114.')).toBe(true)
+  })
+})
+
+describe('한글 수량어 (F2)', () => {
+  it('수량어가 든 문장은 닫힌 쪽으로 실패한다', () => {
+    expect(verifyAgainstSource('정확도가 두 배로 올랐다', 'Accuracy doubled, 2 times.')).toBe(false)
+    expect(verifyAgainstSource('다섯 개 벤치마크에서 평가했다', 'We use 5 benchmarks.')).toBe(false)
+    expect(verifyAgainstSource('비용을 절반으로 줄였다', 'Cost halved.')).toBe(false)
+    expect(verifyAgainstSource('3분의 1로 줄였다', 'one third')).toBe(false)
+  })
+
+  it('수량어가 없는 문장은 통과한다', () => {
+    expect(verifyAgainstSource('한계 서술이 성실하다', 'Limitations are honest.')).toBe(true)
+  })
+
+  it('hasKoreanNumeral', () => {
+    expect(hasKoreanNumeral('수십 배 빨라졌다')).toBe(true)
+    expect(hasKoreanNumeral('세 가지 방법')).toBe(true)
+    expect(hasKoreanNumeral('한계 서술이 성실하다')).toBe(false)
+    expect(hasKoreanNumeral('세계 최초')).toBe(false)
+  })
+})
+
+describe('숫자로 시작하는 라틴 토큰 (F5)', () => {
+  it('3D, 5G를 고유명사 후보로 뽑되 순수 숫자는 뽑지 않는다', () => {
+    expect(extractLatinTerms('3D 재구성과 5G')).toEqual(['3D', '5G'])
+    expect(extractLatinTerms('2023년')).toEqual([])
+  })
+
+  it('원문에 있으면 통과, 없으면 실패', () => {
+    expect(verifyTerms('3D 재구성', [], 'We do 3D reconstruction.')).toBe(true)
+    expect(verifyTerms('3D 재구성', [], 'We do 2D work.')).toBe(false)
+  })
+})
+
+describe('findQuoteInSource (F4)', () => {
+  const sentence = 'We do not improve robustness at all here today.'
+
+  it('짧은 조각(6단어 미만)은 의미를 뒤집을 수 있어 거부한다', () => {
+    expect(findQuoteInSource('improve robustness', sentence)).toBeNull()
+    expect(findQuoteInSource('e', sentence)).toBeNull()
+  })
+
+  it('6단어 이상 정확 인용은 원문의 표기로 돌려준다', () => {
+    expect(findQuoteInSource('we do not improve robustness at all', sentence)).toBe('We do not improve robustness at all')
+  })
+
+  it('단어 중간에서 시작하는 인용은 거부한다', () => {
+    expect(findQuoteInSource('e do not improve robustness at all here', sentence)).toBeNull()
+  })
+
+  it('verifyQuote는 findQuoteInSource가 null이 아닌지와 같다', () => {
+    expect(verifyQuote('improve robustness', sentence)).toBe(false)
+    expect(verifyQuote('We do not improve robustness at all', sentence)).toBe(true)
   })
 })

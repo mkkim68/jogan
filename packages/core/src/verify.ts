@@ -21,6 +21,17 @@ function numbersIn(text: string): string[] {
   return matches === null ? [] : matches.map(normalizeNumber)
 }
 
+const KOREAN_NUMERAL =
+  /(?<![가-힣])(?:한|두|세|네|다섯|여섯|일곱|여덟|아홉|열|수십|수백|수천)\s*(?:배|개|가지|번|명|편|차례|단계|종)|절반|분의/u
+
+/**
+ * 한글 수량어("두 배", "다섯 개", "절반", "3분의 1")가 있는지. 이런 표현은 ASCII 숫자 대조를
+ * 피해 가므로(F2), 요약은 원문의 숫자 표기를 그대로 써야 하고 수량어가 든 문장은 검증에서 실패한다.
+ */
+export function hasKoreanNumeral(text: string): boolean {
+  return KOREAN_NUMERAL.test(text)
+}
+
 /**
  * 근거 문장에 나온 수치가 원문에 실제로 있는지 대조한다 (CLAUDE.md 절대 규칙 1).
  *
@@ -44,6 +55,8 @@ function numbersIn(text: string): string[] {
  * 통과한다. 지금은 고치지 않고 알려진 구멍으로 남겨둔다.
  */
 export function verifyAgainstSource(sentence: string, source: string): boolean {
+  // 한글 수량어(두 배, 다섯 개, 절반)는 원문 숫자와 대조할 수 없다 — 닫힌 쪽으로 실패시킨다
+  if (hasKoreanNumeral(sentence)) return false
   const sentenceNumbers = numbersIn(sentence)
   if (sentenceNumbers.length === 0) return true
   const sourceNumbers = new Set(numbersIn(source))
@@ -56,7 +69,7 @@ export function keepVerifiedEvidence(items: Evidence[], source: string): Evidenc
 }
 
 /** 라틴 문자 토큰. 하이픈·점으로 이어진 이름(GPT-4, Mann-Whitney, v1.2, Llama_3)을 유니코드로(Müller, Łukasz)을 한 덩어리로 본다 */
-const LATIN_TOKEN = /\p{Script=Latin}[\p{Script=Latin}\p{N}]*(?:[-._][\p{Script=Latin}\p{N}]+)*/gu
+const LATIN_TOKEN = /[\p{N}]*\p{Script=Latin}[\p{Script=Latin}\p{N}]*(?:[-._][\p{Script=Latin}\p{N}]+)*/gu
 
 /**
  * 문장에서 고유명사 후보를 뽑는다 — 대문자나 숫자가 섞인 라틴 토큰(BERT, ImageNet, GPT-4).
@@ -109,10 +122,64 @@ export function verifyTerms(sentence: string, terms: string[], source: string): 
   return [...all].every((t) => containsToken(normalizedSource, normalizeForMatch(t)))
 }
 
-/** 인용은 원문에 그대로 있어야 한다. 공백·대소문자 차이만 허용한다 */
-export function verifyQuote(quote: string, source: string): boolean {
+const QUOTE_MIN_WORDS = 6
+
+/**
+ * 인용을 원문에서 찾아 **원문 자신의 표기**(대소문자·문자 그대로, 공백만 한 칸)로 돌려준다. 없으면 null.
+ * 대소문자·공백·하이픈 차이만 허용하고, 시작과 끝이 라틴 토큰 경계에 맞아야 하며 6단어 이상이어야 한다 —
+ * "We do not improve robustness"에서 "improve robustness"만 떼면 뜻이 뒤집히기 때문이다 (F4).
+ */
+export function findQuoteInSource(quote: string, source: string): string | null {
   const q = normalizeForMatch(quote).trim()
-  return q.length > 0 && normalizeForMatch(source).includes(q)
+  if (q.length === 0 || q.split(' ').length < QUOTE_MIN_WORDS) return null
+
+  // 정규화한 원문과 원본 인덱스의 대응을 만든다 (normalizeForMatch와 같은 규칙을 글자 단위로)
+  let norm = ''
+  const origIndex: number[] = []
+  let prevSpace = false
+  for (let i = 0; i < source.length; ) {
+    const cp = source.codePointAt(i) ?? 0
+    const ch = String.fromCodePoint(cp)
+    let out = ch.toLowerCase()
+    if (/\s/.test(ch)) {
+      if (prevSpace) {
+        i += ch.length
+        continue
+      }
+      out = ' '
+      prevSpace = true
+    } else {
+      prevSpace = false
+      if (/[\u2010-\u2015\u2212]/.test(ch)) out = '-'
+    }
+    for (let k = 0; k < out.length; k++) origIndex.push(i)
+    norm += out
+    i += ch.length
+  }
+
+  let from = 0
+  for (;;) {
+    const at = norm.indexOf(q, from)
+    if (at === -1) return null
+    const before = at === 0 ? '' : ([...norm.slice(Math.max(0, at - 2), at)].pop() ?? '')
+    const rest = norm.slice(at + q.length)
+    const beforeOk = before === '' || !TOKEN_CHAR.test(before) || !TOKEN_CHAR.test(q)
+    const afterOk = rest === '' || !(TOKEN_CHAR.test(rest) || CONNECTOR_THEN_TOKEN.test(rest))
+    if (beforeOk && afterOk) {
+      const start = origIndex[at] ?? 0
+      const lastNorm = at + q.length - 1
+      const lastOrig = origIndex[lastNorm] ?? source.length - 1
+      const lastCp = source.codePointAt(lastOrig) ?? 0
+      const end = lastOrig + String.fromCodePoint(lastCp).length
+      return source.slice(start, end).replace(/\s+/g, ' ')
+    }
+    from = at + 1
+  }
+}
+
+/** 인용은 원문에 그대로 있어야 한다 — `findQuoteInSource` 참고 */
+export function verifyQuote(quote: string, source: string): boolean {
+  return findQuoteInSource(quote, source) !== null
 }
 
 /** 요약 문장 하나의 검증: 숫자(정확 일치) && 고유명사 */

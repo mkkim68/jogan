@@ -94,6 +94,8 @@ export const EVALUATOR_LOCK_KEY = 610_928
 export const BRIEF_SIZE = 4
 /** 심사 전 프리프린트(notable 트랙) 하루 최대 편수 — CLAUDE.md 절대 규칙 3 */
 export const BRIEF_MAX_PREPRINTS = 2
+/** 사용자당 하루 요약(LLM) 호출 상한 — ADR 0002 D6 사용자당 4~8회, CLAUDE.md 비용 (던지거나 null이어도 센다) */
+export const BRIEF_MAX_SUMMARY_ATTEMPTS = 8
 /** 한 관심사가 지면을 독식하지 않게 (ADR 0002 D3) */
 export const BRIEF_MAX_PER_INTEREST = 2
 /** 신뢰도 트랙 가중 (ADR 0002 D2) */
