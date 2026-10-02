@@ -55,8 +55,8 @@ export function keepVerifiedEvidence(items: Evidence[], source: string): Evidenc
   return items.filter((e) => verifyAgainstSource(e.text, source))
 }
 
-/** 라틴 문자 토큰. 하이픈·점으로 이어진 이름(GPT-4, Mann-Whitney, v1.2)을 한 덩어리로 본다 */
-const LATIN_TOKEN = /[A-Za-z][A-Za-z0-9]*(?:[-.][A-Za-z0-9]+)*/g
+/** 라틴 문자 토큰. 하이픈·점으로 이어진 이름(GPT-4, Mann-Whitney, v1.2, Llama_3)을 유니코드로(Müller, Łukasz)을 한 덩어리로 본다 */
+const LATIN_TOKEN = /\p{Script=Latin}[\p{Script=Latin}\p{N}]*(?:[-._][\p{Script=Latin}\p{N}]+)*/gu
 
 /**
  * 문장에서 고유명사 후보를 뽑는다 — 대문자나 숫자가 섞인 라틴 토큰(BERT, ImageNet, GPT-4).
@@ -67,14 +67,35 @@ const LATIN_TOKEN = /[A-Za-z][A-Za-z0-9]*(?:[-.][A-Za-z0-9]+)*/g
 export function extractLatinTerms(text: string): string[] {
   const found = new Set<string>()
   for (const token of text.match(LATIN_TOKEN) ?? []) {
-    if (/[A-Z0-9]/.test(token)) found.add(token)
+    if (/[\p{Lu}\p{N}]/u.test(token)) found.add(token)
   }
   return [...found]
 }
 
-/** 대소문자와 공백만 정규화한다 — 철자가 다르면 다른 이름이다 */
+/** 대소문자·공백·하이픈 변형만 정규화한다 — 철자가 다르면 다른 이름이다. arXiv HTML은 비분리 하이픈(U+2011)을 쓴다 */
 function normalizeForMatch(text: string): string {
-  return text.toLowerCase().replace(/\s+/g, ' ')
+  return text.toLowerCase().replace(/[\u2010-\u2015\u2212]/g, '-').replace(/\s+/g, ' ')
+}
+
+const TOKEN_CHAR = /^[\p{Script=Latin}\p{N}]/u
+const CONNECTOR_THEN_TOKEN = /^[-._][\p{Script=Latin}\p{N}]/u
+
+/**
+ * 원문에서 토큰 경계를 지켜 term이 나오는지. "BERT"가 "RoBERTa"에, "GPT-4"가 "GPT-4o"에
+ * 부분 일치로 통과하면 지어낸 이름이 검증을 빠져나간다. 여러 번 나오면 하나라도 경계가 맞으면 통과.
+ */
+function containsToken(normalizedSource: string, normalizedTerm: string): boolean {
+  let from = 0
+  for (;;) {
+    const at = normalizedSource.indexOf(normalizedTerm, from)
+    if (at === -1) return false
+    const before = at === 0 ? '' : [...normalizedSource.slice(Math.max(0, at - 2), at)].pop() ?? ''
+    const rest = normalizedSource.slice(at + normalizedTerm.length)
+    const beforeOk = before === '' || !TOKEN_CHAR.test(before)
+    const afterOk = rest === '' || !(TOKEN_CHAR.test(rest) || CONNECTOR_THEN_TOKEN.test(rest))
+    if (beforeOk && afterOk) return true
+    from = at + 1
+  }
 }
 
 /**
@@ -85,7 +106,7 @@ function normalizeForMatch(text: string): string {
 export function verifyTerms(sentence: string, terms: string[], source: string): boolean {
   const normalizedSource = normalizeForMatch(source)
   const all = new Set([...terms.map((t) => t.trim()).filter((t) => t.length > 0), ...extractLatinTerms(sentence)])
-  return [...all].every((t) => normalizedSource.includes(normalizeForMatch(t)))
+  return [...all].every((t) => containsToken(normalizedSource, normalizeForMatch(t)))
 }
 
 /** 인용은 원문에 그대로 있어야 한다. 공백·대소문자 차이만 허용한다 */

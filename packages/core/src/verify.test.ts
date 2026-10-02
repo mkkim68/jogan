@@ -148,3 +148,42 @@ describe('verifySentence', () => {
     expect(verifySentence('CIFAR에서 87.5를 달성했다', ['CIFAR'], source)).toBe(false)
   })
 })
+
+describe('고유명사 경계·유니코드 (검증 우회 방지)', () => {
+  it('BERT는 RoBERTa 안의 부분 문자열로 통과하지 못한다', () => {
+    expect(verifyTerms('BERT를 능가했다', [], 'We beat RoBERTa on tasks.')).toBe(false)
+  })
+
+  it('GPT-4는 GPT-4o로 통과하지 못한다', () => {
+    expect(verifyTerms('GPT-4를 능가했다', [], 'We beat GPT-4o.')).toBe(false)
+  })
+
+  it('문장 끝 마침표는 토큰의 일부가 아니다', () => {
+    expect(verifyTerms('GPT-4 사용', ['GPT-4'], 'We use GPT-4.')).toBe(true)
+  })
+
+  it('쉼표가 붙어도 통과', () => {
+    expect(verifyTerms('ImageNet 결과', ['ImageNet'], 'on ImageNet, we')).toBe(true)
+  })
+
+  it('여러 번 나오면 하나라도 경계가 맞으면 통과', () => {
+    expect(verifyTerms('BERT 사용', ['BERT'], 'RoBERTa and BERT.')).toBe(true)
+  })
+
+  it('악센트 있는 이름을 추출한다', () => {
+    expect(extractLatinTerms('Müller 등이 제안한')).toEqual(['Müller'])
+    expect(extractLatinTerms('Łukasz Kaiser')).toEqual(['Łukasz', 'Kaiser'])
+  })
+
+  it('원문에 없는 악센트 이름은 실패', () => {
+    expect(verifyTerms('Müller 등이 제안한', [], 'Proposed by Smith.')).toBe(false)
+  })
+
+  it('밑줄로 이어진 이름을 한 덩어리로 본다', () => {
+    expect(extractLatinTerms('Llama_3 모델')).toEqual(['Llama_3'])
+  })
+
+  it('원문의 비분리 하이픈(U+2011)도 같은 하이픈으로 본다', () => {
+    expect(verifyTerms('GPT-4 사용', ['GPT-4'], 'We use GPT\u20114.')).toBe(true)
+  })
+})
