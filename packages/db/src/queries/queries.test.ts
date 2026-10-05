@@ -31,32 +31,77 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
     userId = user.id
   })
 
+  /**
+   * 일회용 사용자에게 오늘자 브리핑(4항목, 유사 주제 1편)을 만들어 콜백에 넘기고, 끝나면 사용자를 지운다.
+   * 시드·실파이프라인 브리핑의 날짜·구성에 의존하지 않는다. 논문·평가는 읽기만 하고 지우지 않는다.
+   */
+  async function withTempTodayBrief(
+    fn: (tempUserId: string, oneLines: string[]) => Promise<void>,
+  ): Promise<void> {
+    const { db, users, papers, assessments, insertBrief, todayInSeoul } = await import('../index')
+    let uid: string | undefined
+    try {
+      const [tempUser] = await db
+        .insert(users)
+        .values({ email: `__test_today_brief_${Date.now()}@example.com`, name: null, image: null })
+        .returning()
+      if (!tempUser) throw new Error('임시 사용자 생성 실패')
+      uid = tempUser.id
+
+      const rows = await db
+        .select({ id: papers.id })
+        .from(papers)
+        .innerJoin(assessments, eq(assessments.paperId, papers.id))
+        .limit(4)
+      if (rows.length < 4) {
+        throw new Error(`평가가 있는 논문이 4편 필요한데 ${rows.length}편뿐이다. 파이프라인이나 시드로 채운 뒤 다시 돌려라.`)
+      }
+      const oneLines = rows.map((_, i) => `테스트 한 줄 ${i}`)
+      await insertBrief(
+        { userId: tempUser.id, date: todayInSeoul(), issueNumber: 1, readMinutes: 3 },
+        rows.map((r, i) => ({
+          position: i, paperId: r.id, interestId: null, oneLine: oneLines[i] ?? '한 줄',
+          whyItMatters: '왜', method: '방법', results: [], limitations: [], quotes: [],
+          isSerendipity: i === 3,
+        })),
+      )
+      await fn(tempUser.id, oneLines)
+    } finally {
+      const id = uid
+      if (id) await safeCleanup(() => db.delete(users).where(eq(users.id, id)))
+    }
+  }
+
   it('오늘 브리핑을 항목·논문·평가와 함께 가져온다', async () => {
     const { getTodayBrief, todayInSeoul } = await import('../index')
 
-    const view = await getTodayBrief(userId, todayInSeoul())
-    expect(view).not.toBeNull()
-    expect(view?.items).toHaveLength(4)
-    expect(view?.isToday).toBe(true)
-    // 목록은 임베딩을 끌고 오지 않는다
-    expect(view?.items[0] && 'embedding' in view.items[0].paper).toBe(false)
-    // 순서는 position대로
-    expect(view?.items.map((i) => i.item.position)).toEqual([0, 1, 2, 3])
-    // 유사 주제 논문이 정확히 1편
-    expect(view?.items.filter((i) => i.item.isSerendipity)).toHaveLength(1)
+    await withTempTodayBrief(async (uid) => {
+      const view = await getTodayBrief(uid, todayInSeoul())
+      expect(view).not.toBeNull()
+      expect(view?.items).toHaveLength(4)
+      expect(view?.isToday).toBe(true)
+      // 목록은 임베딩을 끌고 오지 않는다
+      expect(view?.items[0] && 'embedding' in view.items[0].paper).toBe(false)
+      // 순서는 position대로
+      expect(view?.items.map((i) => i.item.position)).toEqual([0, 1, 2, 3])
+      // 유사 주제 논문이 정확히 1편
+      expect(view?.items.filter((i) => i.item.isSerendipity)).toHaveLength(1)
+    })
   })
 
   it('논문 상세에 평가와 브리핑 항목이 함께 온다', async () => {
     const { getPaperDetail, getTodayBrief, todayInSeoul } = await import('../index')
-    const view = await getTodayBrief(userId, todayInSeoul())
-    const first = view?.items[0]
-    expect(first).toBeDefined()
-    if (!first) return
+    await withTempTodayBrief(async (uid) => {
+      const view = await getTodayBrief(uid, todayInSeoul())
+      const first = view?.items[0]
+      expect(first).toBeDefined()
+      if (!first) return
 
-    const detail = await getPaperDetail(first.paper.id, userId)
-    expect(detail?.paper.id).toBe(first.paper.id)
-    expect(detail?.assessment).not.toBeNull()
-    expect(detail?.briefItem?.oneLine).toBe(first.item.oneLine)
+      const detail = await getPaperDetail(first.paper.id, uid)
+      expect(detail?.paper.id).toBe(first.paper.id)
+      expect(detail?.assessment).not.toBeNull()
+      expect(detail?.briefItem?.oneLine).toBe(first.item.oneLine)
+    })
   })
 
   it('저장함의 후속 소식 at이 Date로 복원된다', async () => {
@@ -73,9 +118,11 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
     expect(settings?.departureTime).toMatch(/^([01]\d|2[0-3]):[0-5]\d$/)
   })
 
-  it('연속 기록이 0 이상이다', async () => {
+  it('오늘 브리핑이 있으면 연속 기록이 1 이상이다', async () => {
     const { countStreak, todayInSeoul } = await import('../index')
-    expect(await countStreak(userId, todayInSeoul())).toBeGreaterThanOrEqual(1)
+    await withTempTodayBrief(async (uid) => {
+      expect(await countStreak(uid, todayInSeoul())).toBeGreaterThanOrEqual(1)
+    })
   })
 
   it('워터마크를 쓰고 읽는다', async () => {
