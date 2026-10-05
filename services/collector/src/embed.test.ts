@@ -1,7 +1,6 @@
-import { EMBEDDING_DIM } from '@jogan/core'
+import { EMBEDDING_DIM, type HttpClient } from '@jogan/core'
 import { describe, expect, it } from 'vitest'
 import { chunk, embedTexts, paperEmbeddingInput } from './embed'
-import type { HttpClient } from './http'
 
 const vec = (v: number) => Array.from({ length: EMBEDDING_DIM }, () => v)
 

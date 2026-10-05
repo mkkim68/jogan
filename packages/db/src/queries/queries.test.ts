@@ -95,13 +95,25 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
   })
 
   it('relevance는 [0, 1] 밖이면 DB가 거부한다', async () => {
-    const { db, papers, paperCandidates, upsertCandidates } = await import('../index')
+    const { db, papers, paperCandidates, upsertCandidates, upsertArxivPapers } = await import('../index')
     const { and, eq } = await import('drizzle-orm')
-    const paper = await db.query.papers.findFirst()
-    expect(paper).toBeDefined()
-    if (!paper) return
 
+    // 실제 논문을 골라 쓰면, 그 논문이 이미 파이프라인의 진짜 후보 행을 갖고 있을 때
+    // finally의 "혹시 남았다면 지운다"가 그 진짜 행을 지워버릴 수 있다. 이 테스트만의
+    // 논문을 만들어 그 논문에만 (실패할) 후보를 건다. 생성·조회도 try 안에서 해야
+    // 그 사이에 던지더라도 finally가 등록돼 있어 논문이 고아로 남지 않는다.
+    const arxivId = '__test.00003'
     try {
+      await upsertArxivPapers([{
+        doi: null, arxivId, title: 'relevance 범위 테스트', authors: [{ name: '저자' }],
+        abstract: '초록', publishedAt: new Date('2026-09-20T00:00:00Z'),
+        source: 'arxiv' as const, venue: { name: 'arXiv', kind: 'preprint' as const },
+        pdfUrl: null, codeUrl: null, openAccess: true,
+      }])
+      const paper = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      expect(paper).toBeDefined()
+      if (!paper) return
+
       let caught: unknown = null
       try {
         await upsertCandidates([
@@ -114,14 +126,20 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
       expect(caught).toBeInstanceOf(Error)
       const cause = caught instanceof Error ? caught.cause : null
       expect(cause instanceof Error ? cause.message : String(cause)).toMatch(/relevance_range/)
+      // papers 테이블은 건드리지 않았다
+      expect(await db.query.papers.findFirst({ where: eq(papers.id, paper.id) })).toBeDefined()
     } finally {
-      // 제약에 걸려 들어가지 않았어야 하지만, 혹시 남았다면 지운다
-      await db
-        .delete(paperCandidates)
-        .where(and(eq(paperCandidates.userId, userId), eq(paperCandidates.paperId, paper.id)))
+      // 제약에 걸려 들어가지 않았어야 하지만, 혹시 남았다면 지운다 — 이 테스트가 만든
+      // 논문 하나에 대해서만이라 다른 행을 건드릴 수 없다. try 도중에 실패해 paper를
+      // 못 구했을 수도 있어 arxivId로 다시 찾는다.
+      const paper = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      if (paper) {
+        await db
+          .delete(paperCandidates)
+          .where(and(eq(paperCandidates.userId, userId), eq(paperCandidates.paperId, paper.id)))
+      }
+      await db.delete(papers).where(eq(papers.arxivId, arxivId))
     }
-    // papers 테이블은 건드리지 않았다
-    expect(await db.query.papers.findFirst({ where: eq(papers.id, paper.id) })).toBeDefined()
   })
 
   it('워터마크는 더 늦은 값으로만 전진한다 (뒤로 가지 않는다)', async () => {
@@ -145,18 +163,30 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
   })
 
   it('후보는 더 높은 relevance로만 갱신되고, 그때 interestId도 함께 바뀐다', async () => {
-    const { db, papers, listInterests, upsertCandidates, paperCandidates } = await import('../index')
+    const { db, papers, listInterests, upsertCandidates, upsertArxivPapers, paperCandidates } = await import('../index')
     const { and, eq } = await import('drizzle-orm')
-    const paper = await db.query.papers.findFirst()
-    expect(paper).toBeDefined()
-    if (!paper) return
 
-    const userInterests = await listInterests(userId)
-    expect(userInterests.length).toBeGreaterThanOrEqual(2)
-    const [interestA, interestB] = userInterests
-    if (!interestA || !interestB) return
-
+    // 실제 논문을 빌려 쓰면 그 논문이 이미 파이프라인의 진짜 후보 행을 갖고 있을 수 있고,
+    // upsertCandidates의 setWhere(relevance가 더 높을 때만)는 그 진짜 행을 조용히 건드리지
+    // 않은 채 통과시킨 뒤 finally가 그 행을 지워버린다. 이 테스트만의 논문을 만든다.
+    // 생성·조회도 try 안에서 해야 그 사이에 던지더라도 논문이 고아로 남지 않는다.
+    const arxivId = '__test.00004'
     try {
+      await upsertArxivPapers([{
+        doi: null, arxivId, title: '후보 갱신 테스트', authors: [{ name: '저자' }],
+        abstract: '초록', publishedAt: new Date('2026-09-20T00:00:00Z'),
+        source: 'arxiv' as const, venue: { name: 'arXiv', kind: 'preprint' as const },
+        pdfUrl: null, codeUrl: null, openAccess: true,
+      }])
+      const paper = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      expect(paper).toBeDefined()
+      if (!paper) return
+
+      const userInterests = await listInterests(userId)
+      expect(userInterests.length).toBeGreaterThanOrEqual(2)
+      const [interestA, interestB] = userInterests
+      if (!interestA || !interestB) return
+
       // 관심사 A로 0.6 삽입
       await upsertCandidates([
         { userId, paperId: paper.id, interestId: interestA.id, relevance: 0.6, collectedFor: '2026-09-27' },
@@ -183,7 +213,16 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
       expect(high?.interestId).toBe(interestB.id)
       expect(high?.collectedFor).toBe('2026-09-29')
     } finally {
-      await db.delete(paperCandidates).where(eq(paperCandidates.userId, userId))
+      // 이 테스트가 만든 논문의 후보 행만 지운 뒤, 논문 자체도 지운다 (paper_candidates에는
+      // 캐스케이드가 없어 순서를 지켜야 한다). try 도중에 실패했을 수 있어 arxivId로 다시
+      // 찾는다.
+      const paper = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      if (paper) {
+        await db
+          .delete(paperCandidates)
+          .where(and(eq(paperCandidates.userId, userId), eq(paperCandidates.paperId, paper.id)))
+      }
+      await db.delete(papers).where(eq(papers.arxivId, arxivId))
     }
   })
 
@@ -420,6 +459,386 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
 
     const restored = await getSettings(userId)
     expect(restored).toEqual(original)
+  })
+
+  it('아직 평가되지 않은 후보 논문만 가져온다', async () => {
+    const {
+      listUnassessedCandidatePapers, upsertAssessment, upsertCandidates, upsertArxivPapers,
+      db, assessments, papers, paperCandidates,
+    } = await import('../index')
+    const { and, eq } = await import('drizzle-orm')
+
+    // 실제 논문을 빌리면 그 논문이 이미 파이프라인·다른 사용자의 진짜 후보 행을 갖고
+    // 있을 수 있어 finally의 삭제가 그 진짜 행을 지워버릴 수 있다. 이 테스트만의
+    // 논문을 만든다. 생성·조회·후보 삽입도 try 안에서 해야 그 사이에 던지더라도
+    // 논문이 고아로 남지 않는다.
+    const arxivId = '__test.00005'
+    try {
+      await upsertArxivPapers([{
+        doi: null, arxivId, title: '미평가 후보 조회 테스트', authors: [{ name: '저자' }],
+        abstract: '초록', publishedAt: new Date('2026-09-20T00:00:00Z'),
+        source: 'arxiv' as const, venue: { name: 'arXiv', kind: 'preprint' as const },
+        pdfUrl: null, codeUrl: null, openAccess: true,
+      }])
+      const candidatePaper = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      expect(candidatePaper).toBeDefined()
+      if (!candidatePaper) return
+
+      await upsertCandidates([
+        { userId, paperId: candidatePaper.id, interestId: null, relevance: 0.5, collectedFor: '2026-09-29' },
+      ])
+
+      const before = await listUnassessedCandidatePapers(2000)
+      expect(before.map((p) => p.id)).toContain(candidatePaper.id)
+
+      await upsertAssessment({
+        paperId: candidatePaper.id,
+        track: 'notable',
+        field: 'cs',
+        stage1: { passed: true, retracted: false, predatoryVenue: false, paperMillSignals: [] },
+        stage2: { venueTier: null, reviewStatus: 'preprint', reviewScore: null, authorTrackRecord: 0 },
+        stage3: null,
+        stage4: null,
+        evidence: [{ stage: 1, verdict: 'pass', text: '철회 기록이 없다' }],
+        caveats: [],
+      })
+      const after = await listUnassessedCandidatePapers(2000)
+      expect(after.map((p) => p.id)).not.toContain(candidatePaper.id)
+    } finally {
+      // paper_candidates에는 papers로의 캐스케이드가 없어, 후보 행 → 논문 순서로 지운다.
+      // assessments는 캐스케이드가 있지만 명시적으로도 지운다. try 도중에 실패했을 수
+      // 있어 arxivId로 다시 찾는다.
+      const candidatePaper = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      if (candidatePaper) {
+        await db.delete(assessments).where(eq(assessments.paperId, candidatePaper.id))
+        await db
+          .delete(paperCandidates)
+          .where(and(eq(paperCandidates.userId, userId), eq(paperCandidates.paperId, candidatePaper.id)))
+      }
+      await db.delete(papers).where(eq(papers.arxivId, arxivId))
+    }
+  })
+
+  it('같은 논문을 다시 upsert하면 덮어쓴다', async () => {
+    const { upsertAssessment, upsertArxivPapers, db, assessments, papers } = await import('../index')
+    const { eq } = await import('drizzle-orm')
+
+    const arxivId = '__test.00006'
+    try {
+      await upsertArxivPapers([{
+        doi: null, arxivId, title: 'upsert 덮어쓰기 테스트', authors: [{ name: '저자' }],
+        abstract: '초록', publishedAt: new Date('2026-09-20T00:00:00Z'),
+        source: 'arxiv' as const, venue: { name: 'arXiv', kind: 'preprint' as const },
+        pdfUrl: null, codeUrl: null, openAccess: true,
+      }])
+      const paper = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      expect(paper).toBeDefined()
+      if (!paper) return
+
+      const row = {
+        paperId: paper.id,
+        track: 'notable' as const,
+        field: 'cs' as const,
+        stage1: { passed: true, retracted: false, predatoryVenue: false, paperMillSignals: [] },
+        stage2: { venueTier: null, reviewStatus: 'preprint', reviewScore: null, authorTrackRecord: 0 },
+        stage3: null,
+        stage4: null,
+        evidence: [{ stage: 1 as const, verdict: 'pass' as const, text: '처음' }],
+        caveats: [],
+      }
+      await upsertAssessment(row)
+      await upsertAssessment({ ...row, evidence: [{ stage: 1, verdict: 'caution', text: '나중' }] })
+      const saved = await db.query.assessments.findFirst({ where: eq(assessments.paperId, paper.id) })
+      expect(saved?.evidence).toEqual([{ stage: 1, verdict: 'caution', text: '나중' }])
+    } finally {
+      await db.delete(papers).where(eq(papers.arxivId, arxivId))
+    }
+  })
+
+  it('stage3을 null로 다시 upsert하면 실제로 null로 지워진다 (평가하지 않음과 0점을 구분한다)', async () => {
+    const { upsertAssessment, upsertArxivPapers, db, assessments, papers } = await import('../index')
+    const { eq } = await import('drizzle-orm')
+
+    const arxivId = '__test.00007'
+    try {
+      await upsertArxivPapers([{
+        doi: null, arxivId, title: 'stage3 null 복원 테스트', authors: [{ name: '저자' }],
+        abstract: '초록', publishedAt: new Date('2026-09-20T00:00:00Z'),
+        source: 'arxiv' as const, venue: { name: 'arXiv', kind: 'preprint' as const },
+        pdfUrl: null, codeUrl: null, openAccess: true,
+      }])
+      const paper = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      expect(paper).toBeDefined()
+      if (!paper) return
+
+      const stage3 = {
+        reproducibility: { value: 0.8, reason: '코드가 공개되어 있다' },
+        design: { value: 0.7, reason: '통제군이 있다' },
+        statistics: { value: 0.6, reason: '표본이 작다' },
+        claimVsEvidence: { value: 0.75, reason: '주장이 근거 범위 안에 있다' },
+        limitations: { value: 0.5, reason: '한계를 명시했다' },
+        preregistered: false,
+        studyDesign: 'RCT',
+      }
+      const row = {
+        paperId: paper.id,
+        track: 'notable' as const,
+        field: 'cs' as const,
+        stage1: { passed: true, retracted: false, predatoryVenue: false, paperMillSignals: [] },
+        stage2: { venueTier: null, reviewStatus: 'preprint', reviewScore: null, authorTrackRecord: 0 },
+        stage4: null,
+        evidence: [{ stage: 3 as const, verdict: 'pass' as const, text: '본문 정밀 평가를 통과했다' }],
+        caveats: [],
+      }
+      await upsertAssessment({ ...row, stage3 })
+      const withStage3 = await db.query.assessments.findFirst({ where: eq(assessments.paperId, paper.id) })
+      expect(withStage3?.stage3).not.toBeNull()
+
+      // 다시 평가했는데 이번엔 ③b(본문 정밀 평가)를 돌리지 않았다면, 낡은 stage3이 남아
+      // 있으면 안 된다 — "평가하지 않았다"와 "0점"은 다르다 (CLAUDE.md 절대 규칙 2)
+      await upsertAssessment({ ...row, stage3: null })
+      const cleared = await db.query.assessments.findFirst({ where: eq(assessments.paperId, paper.id) })
+      expect(cleared?.stage3).toBeNull()
+    } finally {
+      await db.delete(papers).where(eq(papers.arxivId, arxivId))
+    }
+  })
+
+  it('stage3 키를 아예 생략하고 다시 upsert해도 null로 지워진다', async () => {
+    const { upsertAssessment, upsertArxivPapers, db, assessments, papers } = await import('../index')
+    const { eq } = await import('drizzle-orm')
+
+    // upsertAssessment({ ...row, stage3: null })처럼 명시적으로 null을 넘기는 경우는
+    // `row.stage3 ?? null`이 있든 없든(null ?? null === null) 똑같이 통과한다. `?? null`이
+    // 실제로 막아야 하는 건 stage3 키 자체가 아예 없는 호출이다 — NewAssessment는
+    // assessments.$inferInsert라 stage3가 nullable이라 선택 필드이고, 평가기가 재실행될 때
+    // ③b를 안 돌리면 이 키를 아예 안 보낼 수 있다.
+    const arxivId = '__test.00008'
+    try {
+      await upsertArxivPapers([{
+        doi: null, arxivId, title: 'stage3 키 생략 테스트', authors: [{ name: '저자' }],
+        abstract: '초록', publishedAt: new Date('2026-09-20T00:00:00Z'),
+        source: 'arxiv' as const, venue: { name: 'arXiv', kind: 'preprint' as const },
+        pdfUrl: null, codeUrl: null, openAccess: true,
+      }])
+      const paper = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      expect(paper).toBeDefined()
+      if (!paper) return
+
+      const stage3 = {
+        reproducibility: { value: 0.8, reason: '코드가 공개되어 있다' },
+        design: { value: 0.7, reason: '통제군이 있다' },
+        statistics: { value: 0.6, reason: '표본이 작다' },
+        claimVsEvidence: { value: 0.75, reason: '주장이 근거 범위 안에 있다' },
+        limitations: { value: 0.5, reason: '한계를 명시했다' },
+        preregistered: false,
+        studyDesign: 'RCT',
+      }
+      const rowWithoutStage3 = {
+        paperId: paper.id,
+        track: 'notable' as const,
+        field: 'cs' as const,
+        stage1: { passed: true, retracted: false, predatoryVenue: false, paperMillSignals: [] },
+        stage2: { venueTier: null, reviewStatus: 'preprint', reviewScore: null, authorTrackRecord: 0 },
+        stage4: null,
+        evidence: [{ stage: 1 as const, verdict: 'pass' as const, text: '재평가 — ③b 미실행' }],
+        caveats: [],
+      }
+      await upsertAssessment({ ...rowWithoutStage3, stage3 })
+      const withStage3 = await db.query.assessments.findFirst({ where: eq(assessments.paperId, paper.id) })
+      expect(withStage3?.stage3).not.toBeNull()
+
+      // stage3 키를 아예 넣지 않고 다시 upsert — 타입상 유효한 호출이다
+      await upsertAssessment(rowWithoutStage3)
+      const cleared = await db.query.assessments.findFirst({ where: eq(assessments.paperId, paper.id) })
+      expect(cleared?.stage3).toBeNull()
+    } finally {
+      await db.delete(papers).where(eq(papers.arxivId, arxivId))
+    }
+  })
+  it('관련성 판정을 저장·조회하고, 같은 쌍은 덮어쓴다', async () => {
+    const {
+      db, papers, listInterests, upsertArxivPapers,
+      listRelevanceJudgments, saveRelevanceJudgments,
+    } = await import('../index')
+    const { eq } = await import('drizzle-orm')
+    const arxivId = '__test.00006'
+    try {
+      await upsertArxivPapers([{
+        doi: null, arxivId, title: '관련성 판정 테스트', authors: [{ name: '저자' }],
+        abstract: '초록', publishedAt: new Date('2026-09-20T00:00:00Z'),
+        source: 'arxiv' as const, venue: { name: 'arXiv', kind: 'preprint' as const },
+        pdfUrl: null, codeUrl: null, openAccess: true,
+      }])
+      const paper = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      const [interest] = await listInterests(userId)
+      expect(paper).toBeDefined()
+      expect(interest).toBeDefined()
+      if (!paper || !interest) return
+
+      const v1 = { model: 'm1', promptHash: 'p1' }
+      const v2 = { model: 'm2', promptHash: 'p2' }
+
+      // 빈 입력은 DB를 부르지 않고 빈 Map
+      expect((await listRelevanceJudgments(interest.id, [], v1)).size).toBe(0)
+      await saveRelevanceJudgments([])
+
+      await saveRelevanceJudgments([
+        { interestId: interest.id, paperId: paper.id, relevant: false, reason: '단어만 겹친다', ...v1 },
+      ])
+      expect((await listRelevanceJudgments(interest.id, [paper.id], v1)).get(paper.id)).toBe(false)
+      // 모델이나 프롬프트가 다른 판정은 캐시로 쓰지 않는다 — 기준이 바뀌었으면 다시 묻는다
+      expect((await listRelevanceJudgments(interest.id, [paper.id], { ...v1, promptHash: 'p-new' })).size).toBe(0)
+      expect((await listRelevanceJudgments(interest.id, [paper.id], { ...v1, model: 'm-new' })).size).toBe(0)
+
+      await saveRelevanceJudgments([
+        { interestId: interest.id, paperId: paper.id, relevant: true, reason: '주제가 같다', ...v2 },
+      ])
+      const after = await listRelevanceJudgments(interest.id, [paper.id], v2)
+      expect(after.size).toBe(1)
+      expect(after.get(paper.id)).toBe(true)
+      expect((await listRelevanceJudgments(interest.id, [paper.id], v1)).size).toBe(0)
+    } finally {
+      // relevance_judgments는 papers에 on delete cascade라 논문만 지우면 같이 지워진다
+      await db.delete(papers).where(eq(papers.arxivId, arxivId))
+    }
+  })
+
+  it('현재 기준의 통과 판정이 없는 후보는 정리한다 (옛 기준 통과·판정 없음·탈락)', async () => {
+    const {
+      db, papers, users, addInterests, listInterests, upsertArxivPapers, upsertCandidates,
+      saveRelevanceJudgments, deleteCandidatesWithoutCurrentJudgment,
+    } = await import('../index')
+    const { eq, inArray } = await import('drizzle-orm')
+    const ids = ['__test.00014', '__test.00015', '__test.00016', '__test.00017']
+    const base = {
+      doi: null, authors: [{ name: '저자' }], abstract: '초록',
+      publishedAt: new Date('2026-09-20T00:00:00Z'), source: 'arxiv' as const,
+      venue: { name: 'arXiv', kind: 'preprint' as const }, pdfUrl: null, codeUrl: null, openAccess: true,
+    }
+    // 이 함수는 사용자의 후보를 **전부** 훑는다 — 시드 사용자(= 파이프라인이 실제로 쓰는 사용자)로
+    // 돌리면 진짜 후보가 지워진다(2026-10-02 실제로 86행을 지웠다). 반드시 일회용 사용자로 돌린다.
+    let tempUserId: string | undefined
+    try {
+      const [tempUser] = await db
+        .insert(users)
+        .values({ email: `__test_prune_${Date.now()}@example.com`, name: null, image: null })
+        .returning()
+      if (!tempUser) throw new Error('일회용 사용자 생성 실패')
+      tempUserId = tempUser.id
+      await addInterests(tempUser.id, ['__test_prune_interest'])
+      const [interest] = await listInterests(tempUser.id)
+
+      await upsertArxivPapers(ids.map((arxivId) => ({ ...base, arxivId, title: arxivId })))
+      const rows = await db.query.papers.findMany({ where: inArray(papers.arxivId, ids) })
+      const id = (a: string) => rows.find((r) => r.arxivId === a)?.id ?? ''
+      const [current, oldVersion, unjudged, rejected] = ids.map(id)
+      if (!current || !oldVersion || !unjudged || !rejected || !interest) throw new Error('테스트 준비 실패')
+
+      await upsertCandidates([current, oldVersion, unjudged, rejected].map((paperId) => ({
+        userId: tempUser.id, paperId, interestId: interest.id, relevance: 0.5, collectedFor: '2026-10-02',
+      })))
+      const now = { model: 'm', promptHash: 'new' }
+      await saveRelevanceJudgments([
+        { interestId: interest.id, paperId: current, relevant: true, reason: 'r', ...now },
+        { interestId: interest.id, paperId: oldVersion, relevant: true, reason: 'r', model: 'm', promptHash: 'old' },
+        { interestId: interest.id, paperId: rejected, relevant: false, reason: 'r', ...now },
+      ])
+
+      expect(await deleteCandidatesWithoutCurrentJudgment(tempUser.id, now)).toBe(3)
+      const left = (await db.query.paperCandidates.findMany({ where: (c, { eq: e }) => e(c.userId, tempUser.id) }))
+        .map((r) => r.paperId)
+      expect(left).toEqual([current])
+    } finally {
+      // 일회용 사용자를 지우면 관심사·후보·판정이 cascade로 함께 지워진다
+      const uid = tempUserId
+      if (uid) await safeCleanup(() => db.delete(users).where(eq(users.id, uid)))
+      await safeCleanup(() => db.delete(papers).where(inArray(papers.arxivId, ids)))
+    }
+  })
+
+  it('탈락 쌍의 후보는 (사용자, 논문, 관심사)가 모두 일치할 때만 지운다', async () => {
+    const {
+      db, papers, paperCandidates, listInterests, upsertArxivPapers, upsertCandidates,
+      deleteCandidatesForPairs,
+    } = await import('../index')
+    const { and, eq } = await import('drizzle-orm')
+    const arxivA = '__test.00007'
+    const arxivB = '__test.00008'
+    const base = {
+      doi: null, authors: [{ name: '저자' }], abstract: '초록',
+      publishedAt: new Date('2026-09-20T00:00:00Z'), source: 'arxiv' as const,
+      venue: { name: 'arXiv', kind: 'preprint' as const }, pdfUrl: null, codeUrl: null, openAccess: true,
+    }
+    try {
+      await upsertArxivPapers([
+        { ...base, arxivId: arxivA, title: '삭제 대상' },
+        { ...base, arxivId: arxivB, title: '다른 관심사로 걸린 논문' },
+      ])
+      const pa = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivA) })
+      const pb = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivB) })
+      const [i1, i2] = await listInterests(userId)
+      if (!pa || !pb || !i1 || !i2) throw new Error('시드 관심사가 2개 이상 있어야 한다')
+
+      await upsertCandidates([
+        { userId, paperId: pa.id, interestId: i1.id, relevance: 0.5, collectedFor: '2026-10-01' },
+        { userId, paperId: pb.id, interestId: i2.id, relevance: 0.5, collectedFor: '2026-10-01' },
+      ])
+
+      await deleteCandidatesForPairs(userId, []) // 빈 입력은 아무것도 지우지 않는다
+      // pb는 i1 쌍으로 탈락했지만 후보 행은 i2로 걸려 있다 — 지우면 안 된다
+      await deleteCandidatesForPairs(userId, [
+        { interestId: i1.id, paperId: pa.id },
+        { interestId: i1.id, paperId: pb.id },
+      ])
+
+      const rows = await db.query.paperCandidates.findMany({ where: eq(paperCandidates.userId, userId) })
+      const ids = rows.map((r) => r.paperId)
+      expect(ids).not.toContain(pa.id)
+      expect(ids).toContain(pb.id)
+    } finally {
+      for (const arxivId of [arxivA, arxivB]) {
+        const p = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+        if (p) {
+          await db
+            .delete(paperCandidates)
+            .where(and(eq(paperCandidates.userId, userId), eq(paperCandidates.paperId, p.id)))
+        }
+        await db.delete(papers).where(eq(papers.arxivId, arxivId))
+      }
+    }
+  })
+
+  it('매칭 입력이 판정에 필요한 라벨·제목·초록을 함께 준다', async () => {
+    const {
+      db, papers, listInterestEmbeddings, upsertArxivPapers, setPaperEmbedding, matchPapersForInterest,
+    } = await import('../index')
+    const { EMBEDDING_DIM } = await import('@jogan/core')
+    const { eq } = await import('drizzle-orm')
+    const arxivId = '__test.00009'
+    try {
+      const owned = await listInterestEmbeddings(userId)
+      expect(owned.length).toBeGreaterThan(0)
+      expect(typeof owned[0]?.label).toBe('string')
+
+      await upsertArxivPapers([{
+        doi: null, arxivId, title: '매칭 입력 테스트', authors: [{ name: '저자' }],
+        abstract: '매칭 초록', publishedAt: new Date('2026-09-20T00:00:00Z'),
+        source: 'arxiv' as const, venue: { name: 'arXiv', kind: 'preprint' as const },
+        pdfUrl: null, codeUrl: null, openAccess: true,
+      }])
+      const paper = await db.query.papers.findFirst({ where: eq(papers.arxivId, arxivId) })
+      if (!paper) throw new Error('테스트 논문 생성 실패')
+      const vec = Array.from({ length: EMBEDDING_DIM }, (_, i) => (i === 0 ? 1 : 0))
+      await setPaperEmbedding(paper.id, vec)
+
+      const found = (await matchPapersForInterest(vec, new Date('2026-09-19T00:00:00Z'), 5))
+        .find((m) => m.paperId === paper.id)
+      expect(found?.title).toBe('매칭 입력 테스트')
+      expect(found?.abstract).toBe('매칭 초록')
+    } finally {
+      await db.delete(papers).where(eq(papers.arxivId, arxivId))
+    }
   })
 })
 

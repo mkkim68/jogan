@@ -17,6 +17,8 @@ export const papers = pgTable('papers', {
   venue: jsonb('venue').$type<Venue>(),
   pdfUrl: text('pdf_url'),
   codeUrl: text('code_url'),
+  /** arXiv 카테고리(예: 'cs.LG'). 기존 행엔 값이 없다 — nullable */
+  categories: text('categories').array(),
   openAccess: boolean('open_access').notNull().default(false),
   embedding: vector('embedding', { dimensions: EMBEDDING_DIM }),
   mergedInto: uuid('merged_into').references((): AnyPgColumn => papers.id),

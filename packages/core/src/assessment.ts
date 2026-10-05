@@ -63,8 +63,10 @@ export const Assessment = z.object({
   field: Field,
   stage1: Stage1,
   stage2: Stage2,
-  stage3: Stage3,
-  stage4: Stage4,
+  /** ③b를 돌리지 않은 논문은 null이다. "평가하지 않았다"와 "0점"은 다르다 (절대 규칙 2) */
+  stage3: Stage3.nullable(),
+  /** ④단계는 아직 만들지 않았다. 확인하지 않은 것을 0으로 적지 않는다 */
+  stage4: Stage4.nullable(),
   evidence: z.array(Evidence).min(1),
   caveats: z.array(z.string()),
   assessedAt: z.coerce.date(),

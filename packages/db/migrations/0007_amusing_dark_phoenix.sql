@@ -1,0 +1,1 @@
+ALTER TABLE "relevance_judgments" ADD COLUMN "prompt_hash" text DEFAULT '' NOT NULL;

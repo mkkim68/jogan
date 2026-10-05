@@ -1,6 +1,5 @@
-import { EMBEDDING_DIM, EmbeddingDimensionError, VOYAGE_BATCH_SIZE, VOYAGE_MODEL } from '@jogan/core'
+import { EMBEDDING_DIM, EmbeddingDimensionError, VOYAGE_BATCH_SIZE, VOYAGE_MODEL, type HttpClient } from '@jogan/core'
 import { z } from 'zod'
-import type { HttpClient } from './http'
 
 const VOYAGE_API = 'https://api.voyageai.com/v1/embeddings'
 /** 제목+초록이 이보다 길 일은 거의 없지만, 비용이 튀지 않게 잘라둔다 */

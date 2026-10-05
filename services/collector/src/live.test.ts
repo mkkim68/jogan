@@ -1,9 +1,9 @@
 import { config } from 'dotenv'
 import { describe, expect, it } from 'vitest'
-import { ARXIV_CATEGORIES, ARXIV_MIN_INTERVAL_MS, COLLECT_BACKFILL_DAYS } from '@jogan/core'
+import { ARXIV_CATEGORIES, ARXIV_MIN_INTERVAL_MS, COLLECT_BACKFILL_DAYS, createHttpClient } from '@jogan/core'
 import { buildArxivQueryUrl, entryToPaper, fetchArxivPage, parseArxivFeed } from './arxiv'
 import { embedTexts } from './embed'
-import { createHttpClient } from './http'
+import { createRelevanceLlm, judgeRelevance } from './relevance'
 
 config({ path: ['.env', '../../.env'], quiet: true })
 
@@ -43,4 +43,29 @@ describe.skipIf(!live)('실호출', () => {
     expect(out).toHaveLength(1)
     expect(out[0]).toHaveLength(EMBEDDING_DIM)
   }, 60_000)
+
+  describe.skipIf(!process.env.ANTHROPIC_API_KEY)('관련성 판정 (Haiku)', () => {
+    const usage = { calls: 0, input: 0, output: 0 }
+    const llm = () => createRelevanceLlm(String(process.env.ANTHROPIC_API_KEY), usage)
+
+    it('명백히 관련 있는 쌍은 relevant: true', async () => {
+      const j = await judgeRelevance(llm(), '인과추론', {
+        title: 'Causal Discovery from Observational Data with Latent Confounders',
+        abstract:
+          'We propose a method to identify causal structure from observational data when latent ' +
+          'confounders are present, and prove identifiability under faithfulness assumptions.',
+      })
+      expect(j?.relevant).toBe(true)
+    }, 60_000)
+
+    it('단어만 겹치는 쌍은 relevant: false', async () => {
+      const j = await judgeRelevance(llm(), '수면과 기억 공고화', {
+        title: 'Long-Term Memory for LLM Agents via Hierarchical Retrieval',
+        abstract:
+          'We introduce a memory module for large language model agents that stores past interactions ' +
+          'and retrieves them hierarchically, improving multi-session task success.',
+      })
+      expect(j?.relevant).toBe(false)
+    }, 60_000)
+  })
 })
