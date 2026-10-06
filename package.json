@@ -9,6 +9,7 @@
     "db:migrate": "pnpm --filter @jogan/db migrate",
     "db:push": "pnpm --filter @jogan/db push",
     "db:seed": "pnpm --filter @jogan/db seed",
+    "db:copy-to-neon": "bash scripts/db-copy-to-neon.sh",
     "pipeline:collect": "pnpm --filter @jogan/collector start",
     "pipeline:evaluate": "pnpm --filter @jogan/evaluator start",
     "pipeline:brief": "pnpm --filter @jogan/briefer start",
