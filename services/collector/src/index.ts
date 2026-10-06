@@ -445,13 +445,11 @@ export async function match(deps: MatchDeps = {}): Promise<number> {
       )
     }
     const llm = createRelevanceLlm(apiKey, relevanceUsage, () => log('relevance', 'max_tokens에서 잘렸다'))
+    // 관심사 이름과 판정 응답 원문은 로그에 남기지 않는다 — 새벽 배치 로그는 공개 저장소의 Actions에서
+    // 누구나 볼 수 있고, 관심사는 사용자가 무엇을 읽는지 드러낸다. 어느 쌍인지는 아래 보류 로그의 ID로 찾는다
     judge = (label, paper) =>
       judgeRelevance(llm, label, paper, (f) =>
-        log(
-          'relevance',
-          `판정 실패 ${f.kind} (${label} / ${paper.title.slice(0, 60)}): ${f.detail}` +
-            (f.raw ? `\n--- 응답 원문 ---\n${f.raw.slice(0, 500)}\n---` : ''),
-        ),
+        log('relevance', `판정 실패 ${f.kind} (${paper.title.slice(0, 60)}): ${f.detail}`),
       )
   }
 
@@ -538,7 +536,7 @@ export async function match(deps: MatchDeps = {}): Promise<number> {
         groups.push({ interestId: it.id, matches: passed })
         log(
           'relevance',
-          `관심사 ${it.label}: 판정 ${n.judged} · 통과 ${n.pass} · 탈락 ${n.reject} · 보류 ${n.held} · 캐시 ${n.cached}`,
+          `관심사 ${it.id}: 판정 ${n.judged} · 통과 ${n.pass} · 탈락 ${n.reject} · 보류 ${n.held} · 캐시 ${n.cached}`,
         )
       }
 

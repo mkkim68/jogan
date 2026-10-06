@@ -37,8 +37,10 @@
 - **모노레포: pnpm workspaces만.** 공유 패키지는 빌드 없이 `.ts` 소스를 직접 export (web은 `transpilePackages`, 서비스는 `tsx`).
 - **도메인 타입은 `packages/core`의 zod 스키마에서 `z.infer`로 도출.** 외부 API 파싱과 같은 스키마를 쓴다.
 
+결정됨 (2026-10-06):
+- **배치 실행: GitHub Actions** (`.github/workflows/pipeline.yml`, 03:17 KST, ADR 0004). 저장소가 공개라 **Actions 로그도 공개** — 사용자 이메일·관심사 이름을 로그에 찍지 않는다.
+
 교체 가능 (결정 시 이 파일에 기록):
-- 배치 실행: Vercel Cron 또는 GitHub Actions (새벽 3시 KST)
 - LLM: Anthropic API (평가·요약)
 - 임베딩: 차원은 `packages/core`의 `EMBEDDING_DIM`(기본 1024) 하나로 관리. 모델 확정 시 마이그레이션 한 번
 - TTS: 오디오 브리핑 생성. MVP에서는 생략 가능
