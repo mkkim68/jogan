@@ -40,7 +40,7 @@ describe('createHttpClient', () => {
     expect(clock.sleeps).toEqual([])
   })
 
-  it('429는 지수 백오프로 재시도한다', async () => {
+  it('429는 Retry-After가 없으면 30초부터 지수 백오프로 재시도한다', async () => {
     const clock = fakeClock()
     const statuses = [429, 429, 200]
     let i = 0
@@ -50,18 +50,69 @@ describe('createHttpClient', () => {
     )
     const res = await client.request('https://x/1')
     expect(res.status).toBe(200)
-    expect(clock.sleeps).toEqual([1000, 2000])
+    expect(clock.sleeps).toEqual([30_000, 60_000])
   })
 
-  it('5xx도 재시도한다', async () => {
+  it('429의 Retry-After(초)를 따른다', async () => {
     const clock = fakeClock()
-    const statuses = [503, 200]
+    const responses = [new Response('', { status: 429, headers: { 'Retry-After': '45' } }), ok()]
+    let i = 0
+    const client = createHttpClient(
+      { minIntervalMs: 0, maxRetries: 3 },
+      { fetchImpl: async () => responses[i++]!, sleep: clock.sleep, now: clock.now },
+    )
+    expect((await client.request('https://x/1')).status).toBe(200)
+    expect(clock.sleeps).toEqual([45_000])
+  })
+
+  it('429의 Retry-After(HTTP 날짜)를 지금부터의 대기로 바꾼다', async () => {
+    const clock = fakeClock()
+    clock.advance(Date.UTC(2026, 9, 6, 18, 0, 0))
+    const retryAt = new Date(Date.UTC(2026, 9, 6, 18, 0, 20)).toUTCString()
+    const responses = [new Response('', { status: 429, headers: { 'Retry-After': retryAt } }), ok()]
+    let i = 0
+    const client = createHttpClient(
+      { minIntervalMs: 0, maxRetries: 3 },
+      { fetchImpl: async () => responses[i++]!, sleep: clock.sleep, now: clock.now },
+    )
+    expect((await client.request('https://x/1')).status).toBe(200)
+    expect(clock.sleeps).toEqual([20_000])
+  })
+
+  it('Retry-After가 너무 길면 5분으로 자른다 — 배치 하나가 묶여 있지 않게', async () => {
+    const clock = fakeClock()
+    const responses = [new Response('', { status: 429, headers: { 'Retry-After': '86400' } }), ok()]
+    let i = 0
+    const client = createHttpClient(
+      { minIntervalMs: 0, maxRetries: 3 },
+      { fetchImpl: async () => responses[i++]!, sleep: clock.sleep, now: clock.now },
+    )
+    await client.request('https://x/1')
+    expect(clock.sleeps).toEqual([300_000])
+  })
+
+  it('Retry-After를 읽을 수 없으면 기본 백오프로 기다린다', async () => {
+    const clock = fakeClock()
+    const responses = [new Response('', { status: 429, headers: { 'Retry-After': 'soon' } }), ok()]
+    let i = 0
+    const client = createHttpClient(
+      { minIntervalMs: 0, maxRetries: 3 },
+      { fetchImpl: async () => responses[i++]!, sleep: clock.sleep, now: clock.now },
+    )
+    await client.request('https://x/1')
+    expect(clock.sleeps).toEqual([30_000])
+  })
+
+  it('5xx는 1초부터 짧게 재시도한다', async () => {
+    const clock = fakeClock()
+    const statuses = [503, 502, 200]
     let i = 0
     const client = createHttpClient(
       { minIntervalMs: 0, maxRetries: 3 },
       { fetchImpl: async () => new Response('', { status: statuses[i++] }), sleep: clock.sleep, now: clock.now },
     )
     expect((await client.request('https://x/1')).status).toBe(200)
+    expect(clock.sleeps).toEqual([1000, 2000])
   })
 
   it('400은 재시도하지 않고 그대로 돌려준다', async () => {
