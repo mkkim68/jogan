@@ -5,12 +5,12 @@ import {
   OPENALEX_MIN_INTERVAL_MS,
   TRIAGE_DEEP_CUT,
   createHttpClient,
+  fetchFullText,
   type Evidence,
 } from '@jogan/core'
 import type { NewAssessment, UnassessedPaper } from '@jogan/db'
 import Anthropic from '@anthropic-ai/sdk'
 import { config } from 'dotenv'
-import { fetchFullText } from './fulltext'
 import { runStage1 } from './stage1'
 import { fetchOpenAlexByArxivId, fieldFromCategories, parseOpenAlexWork, toStage2 } from './stage2'
 import { deepEval, triage, type LlmFn } from './stage3'

@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Evidence, Score, Stage3 } from '@jogan/core'
+import { jsonBodyOf, keepVerifiedEvidence, type Evidence, type Score, type Stage3 } from '@jogan/core'
 import { z } from 'zod'
-import { keepVerifiedEvidence } from './verify'
 
 export type LlmFn = (prompt: string, input: string) => Promise<string>
 
@@ -13,20 +12,9 @@ export function loadPrompt(name: 'triage' | 'deep-eval'): string {
   return readFileSync(join(PROMPT_DIR, `${name}.md`), 'utf8')
 }
 
-/** LLM이 코드블록으로 감싸는 일이 흔하다 */
-function fencedBody(raw: string): string {
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (fenced?.[1] !== undefined) return fenced[1].trim()
-  // 코드블록 없이 앞뒤에 말을 붙이기도 한다("평가를 진행하겠습니다." — HISTORY 2026-10-01).
-  // 첫 `{`부터 마지막 `}`까지만 본다. 잘려서 닫히지 않은 응답은 그대로 JSON 실패로 남는다
-  const start = raw.indexOf('{')
-  const end = raw.lastIndexOf('}')
-  return start !== -1 && end > start ? raw.slice(start, end + 1) : raw.trim()
-}
-
 function extractJson(raw: string): unknown {
   try {
-    return JSON.parse(fencedBody(raw))
+    return JSON.parse(jsonBodyOf(raw))
   } catch {
     return null
   }
@@ -92,7 +80,7 @@ export async function deepEval(
   const raw = await llm(loadPrompt('deep-eval'), `${header}# ${paper.title}\n\n${body}`)
   let json: unknown
   try {
-    json = JSON.parse(fencedBody(raw))
+    json = JSON.parse(jsonBodyOf(raw))
   } catch (err) {
     onInvalid?.({ kind: 'json', detail: String(err), raw })
     return null
