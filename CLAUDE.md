@@ -78,6 +78,7 @@ pnpm db:generate         # 마이그레이션 파일 생성 (커밋한다)
 pnpm db:migrate          # 마이그레이션 적용
 pnpm db:push             # 스키마 즉시 반영 (로컬 편의용)
 pnpm db:seed             # 시드 데이터 (docs/PRD.md의 샘플 논문)
+NEON_DATABASE_URL=... pnpm db:copy-to-neon   # 로컬 DB를 빈 Neon으로 통째로 복사 (한 번만)
 pnpm pipeline:collect    # 수집만
 pnpm pipeline:evaluate   # 평가만
 pnpm pipeline:brief      # 요약 · 브리핑 생성
