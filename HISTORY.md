@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-10-08 · 로컬 DB → Neon 복사
+
+`NEON_DATABASE_URL=... pnpm db:copy-to-neon` 1회(사용자 실행). Neon 프로젝트 `jogan` — AWS US East 1,
+PostgreSQL 17.11, Postgres 외 서비스(스토리지·Functions·AI gateway·Neon Auth) 끔, 직접 연결(풀링 아님).
+
+- 14개 테이블 행 수 전부 일치: papers 5,919 · assessments 136 · relevance_judgments 128 · paper_candidates 64 ·
+  briefs 2 · brief_items 6 · users 1 · `__drizzle_migrations` 8 등. `sessions`는 의도대로 옮기지 않았다.
+- 같은 스크립트를 로컬 임시 DB로 돌린 확인(2026-10-06)에서는 임베딩 해시 일치와 `db:migrate` 재적용 없음까지
+  봤다. Neon 쪽에서는 행 수만 대조했다.
+
+---
+
 ## 2026-10-05 · 첫 전체 파이프라인 실행 — arXiv 429 속에서 브리핑 제13호
 
 `pnpm pipeline:run` 1회(collect → evaluate → brief). 최종 exit 1(collect 실패), **evaluate·brief는 정상 완료.**
