@@ -1,4 +1,4 @@
-import { findQuoteInSource, verifySentence, type BriefItem } from '@jogan/core'
+import { findQuoteInSource, sentenceProblems, verifySentence, type BriefItem } from '@jogan/core'
 import type { SummaryDraft } from './summarize'
 
 /** ASCII 또는 전각 숫자 */
@@ -15,6 +15,13 @@ export type VerifiedSummary = {
   dropped: number
 }
 
+/** 논문을 통째로 버린 이유 — 어느 필드의 어떤 문장이, 어떤 숫자·이름 때문에 (HISTORY 2026-10-05 미결) */
+export type SummaryRejection = {
+  field: 'oneLine' | 'whyItMatters'
+  sentence: string
+  problems: string[]
+}
+
 /**
  * 요약 초안의 모든 문장을 원문과 대조한다 (CLAUDE.md 절대 규칙 1, ADR 0002 D1).
  * - `oneLine`·`whyItMatters`가 실패하면 null — 그 논문은 배달하지 않는다
@@ -22,9 +29,20 @@ export type VerifiedSummary = {
  * `results.value`에 숫자가 없으면("대폭 향상") 결과 수치가 아니므로 버린다. 인용은 원문의 표기로 저장한다.
  * 숫자(정확 일치)와 고유명사(모델의 terms + 라틴 토큰 정규식)를 본다. 인용은 원문 그대로여야 한다.
  */
-export function verifySummary(draft: SummaryDraft, source: string, locatorFallback: string = '본문'): VerifiedSummary | null {
-  if (!verifySentence(draft.oneLine.text, draft.oneLine.terms, source)) return null
-  if (!verifySentence(draft.whyItMatters.text, draft.whyItMatters.terms, source)) return null
+export function verifySummary(
+  draft: SummaryDraft,
+  source: string,
+  locatorFallback: string = '본문',
+  onReject?: (r: SummaryRejection) => void,
+): VerifiedSummary | null {
+  for (const field of ['oneLine', 'whyItMatters'] as const) {
+    const { text, terms } = draft[field]
+    const problems = sentenceProblems(text, terms, source)
+    if (problems.length > 0) {
+      onReject?.({ field, sentence: text, problems })
+      return null
+    }
+  }
 
   let dropped = 0
   const keep = <T>(items: T[], ok: (item: T) => boolean): T[] =>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SummaryDraft } from './summarize'
-import { verifySummary } from './verify-summary'
+import { verifySummary, type SummaryRejection } from './verify-summary'
 
 const source = 'We propose X-Net. On ImageNet we reach 87.5 accuracy with 3 seeds. Our method improves accuracy by a wide margin.'
 
@@ -43,6 +43,30 @@ describe('verifySummary', () => {
 
   it('"그래서 뭐?"가 검증에 실패해도 null', () => {
     expect(verifySummary({ ...good, whyItMatters: { text: '정확도 99.9를 냈다', terms: [] } }, source)).toBeNull()
+  })
+
+  it('논문을 버릴 때 어느 문장이 왜 걸렸는지 알려준다', () => {
+    const rejections: SummaryRejection[] = []
+    const r = verifySummary(
+      { ...good, whyItMatters: { text: 'COCO에서 정확도 99.9를 냈다', terms: [] } },
+      source,
+      '본문',
+      (x) => rejections.push(x),
+    )
+    expect(r).toBeNull()
+    expect(rejections).toEqual([
+      {
+        field: 'whyItMatters',
+        sentence: 'COCO에서 정확도 99.9를 냈다',
+        problems: ['원문에 없는 숫자 99.9', '원문에 없는 이름 COCO'],
+      },
+    ])
+  })
+
+  it('통과하면 알리지 않는다', () => {
+    const rejections: SummaryRejection[] = []
+    verifySummary(good, source, '본문', (x) => rejections.push(x))
+    expect(rejections).toEqual([])
   })
 
   it('terms에 빠뜨린 라틴 고유명사도 잡는다', () => {
