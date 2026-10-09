@@ -38,7 +38,7 @@
 - **도메인 타입은 `packages/core`의 zod 스키마에서 `z.infer`로 도출.** 외부 API 파싱과 같은 스키마를 쓴다.
 
 결정됨 (2026-10-06):
-- **배치 실행: GitHub Actions** (`.github/workflows/pipeline.yml`, 03:17 KST, ADR 0004). 저장소가 공개라 **Actions 로그도 공개** — 사용자 이메일·관심사 이름을 로그에 찍지 않는다.
+- **배치 실행: GitHub Actions** (`.github/workflows/pipeline.yml`, 00:17 KST 예약 — 실제 시작은 4~5시간 늦다, ADR 0004). 저장소가 공개라 **Actions 로그도 공개** — 사용자 이메일·관심사 이름을 로그에 찍지 않는다.
 
 교체 가능 (결정 시 이 파일에 기록):
 - LLM: Anthropic API (평가·요약)

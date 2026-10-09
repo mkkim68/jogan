@@ -5,8 +5,9 @@ name: pipeline
 
 on:
   schedule:
-    # 03:17 KST. GitHub cron은 UTC이고, 정각은 몰려서 지연이 크다
-    - cron: '17 18 * * *'
+    # 00:17 KST. GitHub cron은 UTC이고, 정각은 몰려서 지연이 크다.
+    # 실측 지연이 4~5시간이라(HISTORY.md 2026-10-08) 03시가 아니라 자정 직후에 걸어 아침 전에 끝나게 한다
+    - cron: '17 15 * * *'
   workflow_dispatch:
 
 # 두 실행이 겹치지 않게. 각 서비스의 advisory lock이 있지만 비용이 드는 잡을 두 번 띄울 이유가 없다
