@@ -34,15 +34,16 @@ Vercel Hobby 문서 기준(2026-10-05 확인): cron은 하루 1회, 실행 시�
 - **로그가 공개다.** 저장소가 public이라 Actions 로그를 누구나 본다. 로그에 사용자 이메일·관심사 이름·
   API 응답 원문 중 사용자를 드러내는 것을 찍지 않는다(이 결정과 함께 collector 관련성 판정 로그에서 관심사
   이름·응답 원문을 뺐다). 사용자 ID(UUID)와 논문 ID는 남긴다.
-- GitHub cron은 정시 보장이 없다. 부하가 몰리면 수십 분 늦거나 드물게 건너뛴다 — 정각 대신 03:17 KST.
-  브리핑은 "아침에" 있으면 되므로 감수한다.
+- GitHub cron은 정시 보장이 없다. 정각은 피해 17분에 건다. 처음엔 03:17 KST였는데 실제 시작이 4시간 24분 ~
+  5시간 7분 늦어(3회, HISTORY.md 2026-10-08·09) 아침 7~8시에 브리핑이 나왔다 → **00:17 KST로 당겼다**(2026-10-09).
+  arXiv 색인이 원래 2.5일 늦어 몇 시간 일찍 돌려도 내용은 덜 새롭지 않다.
 - 공개 저장소의 schedule은 저장소 활동이 60일 없으면 자동으로 꺼진다.
 - 러너 IP는 여러 사용자가 공유한다. arXiv 429가 로컬보다 잦을 수 있다(추측, 관측 전).
   429 재시도는 `Retry-After`를 따르고 없으면 30·60·120초로 기다리게 바꿨다(`packages/core/src/http.ts`).
 
 ## 결정
 
-`.github/workflows/pipeline.yml` — 매일 18:17 UTC(03:17 KST)와 수동 실행. `pnpm db:migrate` 후
+`.github/workflows/pipeline.yml` — 매일 15:17 UTC(00:17 KST)와 수동 실행. `pnpm db:migrate` 후
 `pnpm pipeline:run`. 비밀값은 저장소 시크릿 `DATABASE_URL`(Neon) · `ANTHROPIC_API_KEY` · `VOYAGE_API_KEY` ·
 `OPENALEX_MAILTO`.
 
