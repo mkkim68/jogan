@@ -1,6 +1,6 @@
 import type { Evidence } from './assessment'
 import { describe, expect, it } from 'vitest'
-import { extractLatinTerms, findQuoteInSource, hasKoreanNumeral, keepVerifiedEvidence, verifyAgainstSource, verifyQuote, verifySentence, verifyTerms } from './verify'
+import { extractLatinTerms, findQuoteInSource, hasKoreanNumeral, keepVerifiedEvidence, sentenceProblems, verifyAgainstSource, verifyQuote, verifySentence, verifyTerms } from './verify'
 
 const source = 'We evaluate on 12 datasets with 3 seeds. Accuracy reaches 87.5% on ImageNet.'
 
@@ -146,6 +146,42 @@ describe('verifySentence', () => {
 
   it('고유명사가 틀리면 실패', () => {
     expect(verifySentence('CIFAR에서 87.5를 달성했다', ['CIFAR'], source)).toBe(false)
+  })
+})
+
+describe('sentenceProblems', () => {
+  const source = 'On ImageNet we reach 87.5 accuracy.'
+
+  it('통과하는 문장은 빈 배열', () => {
+    expect(sentenceProblems('ImageNet에서 87.5를 달성했다', ['ImageNet'], source)).toEqual([])
+  })
+
+  it('원문에 없는 숫자와 이름을 각각 짚는다', () => {
+    expect(sentenceProblems('CIFAR에서 90.1과 87.5를 달성했다', ['CIFAR'], source)).toEqual([
+      '원문에 없는 숫자 90.1',
+      '원문에 없는 이름 CIFAR',
+    ])
+  })
+
+  it('한글 수량어는 그 표현을 짚는다', () => {
+    expect(sentenceProblems('정확도가 두 배가 됐다', [], source)).toEqual(['한글 수량어 "두 배"'])
+  })
+
+  it('terms와 정규식이 같은 이름을 잡아도 한 번만 짚는다', () => {
+    expect(sentenceProblems('COCO에서 평가했다', ['COCO'], source)).toEqual(['원문에 없는 이름 COCO'])
+  })
+
+  it('verifySentence와 판정이 같다', () => {
+    const cases: [string, string[]][] = [
+      ['ImageNet에서 87.5', ['ImageNet']],
+      ['ImageNet에서 87.50', []],
+      ['절반으로 줄었다', []],
+      ['GPT-4o로 평가했다', []],
+      ['baseline보다 낫다', []],
+    ]
+    for (const [text, terms] of cases) {
+      expect(sentenceProblems(text, terms, source).length === 0).toBe(verifySentence(text, terms, source))
+    }
   })
 })
 

@@ -196,3 +196,24 @@ export function verifyQuote(quote: string, source: string): boolean {
 export function verifySentence(sentence: string, terms: string[], source: string): boolean {
   return verifyAgainstSource(sentence, source) && verifyTerms(sentence, terms, source)
 }
+
+/**
+ * `verifySentence`가 왜 실패하는지 — 걸린 수량어·숫자·이름을 하나씩. 통과하면 빈 배열.
+ * 판정은 `verifySentence`와 같다. 제외 사유를 로그와 DB에 남겨 필터 기준을 관측으로 조정하기 위한 것이다.
+ */
+export function sentenceProblems(sentence: string, terms: string[], source: string): string[] {
+  const problems: string[] = []
+  const numeral = sentence.match(KOREAN_NUMERAL)
+  if (numeral !== null) problems.push(`한글 수량어 "${numeral[0]}"`)
+  // 한글 수량어가 있으면 verifyAgainstSource는 숫자를 보지 않고 실패한다. 사유로는 숫자도 함께 짚는다
+  const sourceNumbers = new Set(numbersIn(source))
+  for (const n of new Set(numbersIn(sentence))) {
+    if (!sourceNumbers.has(n)) problems.push(`원문에 없는 숫자 ${n}`)
+  }
+  const normalizedSource = normalizeForMatch(source)
+  const all = new Set([...terms.map((t) => t.trim()).filter((t) => t.length > 0), ...extractLatinTerms(sentence)])
+  for (const t of all) {
+    if (!containsToken(normalizedSource, normalizeForMatch(t))) problems.push(`원문에 없는 이름 ${t}`)
+  }
+  return problems
+}
