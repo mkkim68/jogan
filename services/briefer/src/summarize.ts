@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { jsonBodyOf, type Evidence } from '@jogan/core'
@@ -12,6 +13,16 @@ const PROMPT_PATH = join(import.meta.dirname, '..', 'prompts', 'summary.md')
 /** 프롬프트는 파일로 둔다 (CLAUDE.md) */
 export function loadSummaryPrompt(): string {
   return readFileSync(PROMPT_PATH, 'utf8')
+}
+
+export const SUMMARY_MODEL = 'claude-sonnet-5'
+
+/**
+ * 지금 요약기의 정체 — 모델과 프롬프트 해시(collector `promptHash`와 같은 sha256 앞 12자).
+ * 원문 대조에서 버려진 논문은 이게 같은 동안 다시 요약하지 않는다(`summary_rejections`).
+ */
+export function summarizerVersion(): { model: string; promptHash: string } {
+  return { model: SUMMARY_MODEL, promptHash: createHash('sha256').update(loadSummaryPrompt()).digest('hex').slice(0, 12) }
 }
 
 const Terms = z.array(z.string()).default([])

@@ -1,8 +1,8 @@
-import type { BriefCandidate, NewBriefItemRow } from '@jogan/db'
+import type { BriefCandidate, NewBriefItemRow, SummaryRejectionRow } from '@jogan/db'
 import { describe, expect, it } from 'vitest'
 import { BRIEF_MAX_SUMMARY_ATTEMPTS } from '@jogan/core'
 import { buildBriefs, readMinutesOf, type BriefDeps } from './index'
-import type { SummaryDraft, SummaryInput } from './summarize'
+import { summarizerVersion, type SummaryDraft, type SummaryInput } from './summarize'
 
 const score = (value: number | null) => ({ value, reason: 'r' })
 const stage3 = {
@@ -29,9 +29,10 @@ type Saved = { brief: { userId: string; date: string; issueNumber: number; readM
  * 모든 의존성을 주입한다 — 빠뜨리면 기본 구현이 DB와 실제 Anthropic을 부른다.
  * briefer는 .env를 읽으므로 키가 있는 머신에서는 테스트가 돈을 쓴다.
  */
-function deps(over: Partial<BriefDeps> = {}): { d: BriefDeps; saved: Saved[]; bodies: string[] } {
+function deps(over: Partial<BriefDeps> = {}): { d: BriefDeps; saved: Saved[]; bodies: string[]; rejections: SummaryRejectionRow[] } {
   const saved: Saved[] = []
   const bodies: string[] = []
+  const rejections: SummaryRejectionRow[] = []
   const d: BriefDeps = {
     listUserIds: async () => ['u1'],
     today: '2026-10-02',
@@ -41,9 +42,10 @@ function deps(over: Partial<BriefDeps> = {}): { d: BriefDeps; saved: Saved[]; bo
     summarize: async (input: SummaryInput) => okDraft(input.title.replace('T ', '')),
     nextIssue: async () => 13,
     saveBrief: async (brief, items) => { saved.push({ brief, items }); return 'brief-id' },
+    recordRejection: async (row) => { rejections.push(row) },
     ...over,
   }
-  return { d, saved, bodies }
+  return { d, saved, bodies, rejections }
 }
 
 describe('readMinutesOf', () => {
@@ -83,6 +85,50 @@ describe('buildBriefs', () => {
         input.title === 'T a'
           ? { ...okDraft('a'), oneLine: { text: 'FakeNet을 제안했다', terms: ['FakeNet'] } }
           : okDraft(input.title.replace('T ', '')),
+    })
+    await buildBriefs(d)
+    expect(saved[0]?.items.map((i) => i.paperId)).toEqual(['b', 'c', 'd', 'e'])
+  })
+
+  it('통째로 버린 논문은 사유와 요약기 버전을 기록한다 — 다음 날 다시 요약하지 않게', async () => {
+    const { d, rejections } = deps({
+      summarize: async (input) =>
+        input.title === 'T a'
+          ? { ...okDraft('a'), oneLine: { text: 'FakeNet이 9.9를 냈다', terms: ['FakeNet'] } }
+          : okDraft(input.title.replace('T ', '')),
+    })
+    await buildBriefs(d)
+    expect(rejections).toEqual([
+      {
+        paperId: 'a',
+        field: 'oneLine',
+        sentence: 'FakeNet이 9.9를 냈다',
+        problems: ['원문에 없는 숫자 9.9', '원문에 없는 이름 FakeNet'],
+        sourceKind: '초록',
+        ...summarizerVersion(),
+      },
+    ])
+  })
+
+  it('문장·항목 일부만 버린 논문, 응답을 못 읽거나 호출이 던진 논문은 기록하지 않는다 (다시 시도할 가치가 있다)', async () => {
+    const { d, rejections } = deps({
+      summarize: async (input) => {
+        if (input.title === 'T a') throw new Error('529')
+        if (input.title === 'T b') return null
+        return { ...okDraft(input.title.replace('T ', '')), method: [{ text: '시드 7개를 썼다', terms: [] }] }
+      },
+    })
+    await buildBriefs(d)
+    expect(rejections).toEqual([])
+  })
+
+  it('기록이 실패해도 브리핑은 만든다', async () => {
+    const { d, saved } = deps({
+      summarize: async (input) =>
+        input.title === 'T a'
+          ? { ...okDraft('a'), oneLine: { text: 'FakeNet을 제안했다', terms: ['FakeNet'] } }
+          : okDraft(input.title.replace('T ', '')),
+      recordRejection: async () => { throw new Error('db down') },
     })
     await buildBriefs(d)
     expect(saved[0]?.items.map((i) => i.paperId)).toEqual(['b', 'c', 'd', 'e'])

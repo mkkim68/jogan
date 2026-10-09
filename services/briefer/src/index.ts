@@ -7,17 +7,19 @@ import {
   createHttpClient,
   fetchFullText,
 } from '@jogan/core'
-import type { BriefCandidate, NewBriefItemRow } from '@jogan/db'
+import type { BriefCandidate, NewBriefItemRow, SummaryRejectionRow } from '@jogan/db'
 import { config } from 'dotenv'
 import { fitsConstraints, rankCandidates } from './rank'
-import { summarizePaper, type LlmFn, type SummaryDraft, type SummaryInput } from './summarize'
-import { verifySummary } from './verify-summary'
+import { SUMMARY_MODEL, summarizePaper, summarizerVersion, type LlmFn, type SummaryDraft, type SummaryInput } from './summarize'
+import { verifySummary, type SummaryRejection } from './verify-summary'
 
 config({ path: ['.env', '../../.env'], quiet: true })
 
 function log(stage: string, msg: string): void {
   console.log(`[briefer:${stage}] ${msg}`)
 }
+
+const FIELD_LABEL: Record<SummaryRejection['field'], string> = { oneLine: '한 줄 요약', whyItMatters: '"그래서 뭐?"' }
 
 // @jogan/db는 import 시점에 DATABASE_URL을 요구한다 — 주입만 쓰는 테스트가 DB를 밟지 않게 호출 시점에 불러온다
 const loadDb = () => import('@jogan/db')
@@ -31,7 +33,7 @@ function anthropicLlm(): LlmFn {
   const client = new Anthropic({ apiKey: key })
   return async (prompt, input) => {
     const res = await client.messages.create({
-      model: 'claude-sonnet-5',
+      model: SUMMARY_MODEL,
       // 상한일 뿐 요금은 실제 출력만큼이다. 2048에서 evaluator 응답이 잘렸다(HISTORY 2026-10-01)
       max_tokens: 16000,
       system: prompt,
@@ -58,6 +60,8 @@ export type BriefDeps = {
     brief: { userId: string; date: string; issueNumber: number; readMinutes: number },
     items: NewBriefItemRow[],
   ) => Promise<string>
+  /** 요약을 원문 대조에서 통째로 버린 기록 — 같은 요약기 버전으로는 다시 후보에 오르지 않는다 */
+  recordRejection?: (row: SummaryRejectionRow) => Promise<void>
 }
 
 /** 요약 글자 수 ÷ 500, 올림, 최소 1 (ADR 0002 D7) */
@@ -88,7 +92,10 @@ export async function buildBriefs(
   const listUserIds = deps.listUserIds ?? (async () => (await loadDb()).listUserIds())
   const today = deps.today ?? (await loadDb()).todayInSeoul()
   const hasBrief = deps.hasBrief ?? (async (u: string, d: string) => (await loadDb()).hasBriefForDate(u, d))
-  const listCandidates = deps.listCandidates ?? (async (u: string) => (await loadDb()).listBriefCandidates(u))
+  const version = summarizerVersion()
+  const listCandidates = deps.listCandidates ?? (async (u: string) => (await loadDb()).listBriefCandidates(u, version))
+  const recordRejection =
+    deps.recordRejection ?? (async (row: SummaryRejectionRow) => (await loadDb()).recordSummaryRejection(row))
   const nextIssue = deps.nextIssue ?? (async (u: string) => (await loadDb()).nextIssueNumber(u))
   const saveBrief =
     deps.saveBrief ??
@@ -146,9 +153,22 @@ export async function buildBriefs(
         if (draft === null) continue
         answered++
         // 본문을 못 받았으면 초록이 원문이다. 모델은 제목도 보므로 제목에만 있는 이름도 검증 대상 원문이다
-        const verified = verifySummary(draft, `${c.title}\n\n${body ?? c.abstract}`, body === null ? '초록' : '본문')
+        const sourceKind = body === null ? '초록' : '본문'
+        const rejections: SummaryRejection[] = []
+        const verified = verifySummary(draft, `${c.title}\n\n${body ?? c.abstract}`, sourceKind, (r) => rejections.push(r))
         if (verified === null) {
-          log('verify', `한 줄 요약 또는 "그래서 뭐?"가 원문과 맞지 않아 제외 ${c.paperId}`)
+          const r = rejections[0]
+          if (r !== undefined) {
+            // 사유는 요약 문장과 걸린 숫자·이름뿐이다 — 공개 논문 내용이라 공개 Actions 로그에 남겨도 된다
+            log(
+              'verify',
+              `제외 ${c.paperId} — ${FIELD_LABEL[r.field]} 문장이 ${sourceKind}과 맞지 않다: ${r.problems.join(' · ')} ` +
+                `— "${r.sentence.slice(0, 120)}"`,
+            )
+            await recordRejection({ paperId: c.paperId, ...r, sourceKind, ...version }).catch((err: unknown) =>
+              log('verify', `제외 기록 실패 ${c.paperId} (다음 실행이 다시 요약한다): ${String(err)}`),
+            )
+          }
           continue
         }
         dropped += verified.dropped
