@@ -891,7 +891,7 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
   it('브리핑 후보는 통과 판정 ∩ 평가됨 − 이미 배달된 논문이다', async () => {
     const {
       db, papers, users, addInterests, listInterests, upsertArxivPapers, upsertCandidates,
-      upsertAssessment, saveRelevanceJudgments, listBriefCandidates, insertBrief,
+      upsertAssessment, saveRelevanceJudgments, listBriefCandidates, insertBrief, recordSummaryRejection,
     } = await import('../index')
     const { eq, inArray } = await import('drizzle-orm')
     const ids = { pass: '__test.00011', reject: '__test.00012', unassessed: '__test.00013', stage1fail: '__test.00014' }
@@ -942,11 +942,24 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
         { interestId: interest.id, paperId: stage1fail, relevant: true, reason: 'r', ...v },
       ])
 
-      const before = await listBriefCandidates(tempUser.id)
+      const summarizer = { model: 's', promptHash: 'p' }
+      const before = await listBriefCandidates(tempUser.id, summarizer)
       expect(before.map((c) => c.paperId)).toEqual([pass]) // 탈락·미평가·①단계 실패는 빠진다 (F1)
       expect(before[0]?.title).toBe(`후보 ${ids.pass}`)
       expect(before[0]?.track).toBe('notable')
       expect(before[0]?.interestId).toBe(interest.id)
+
+      // 같은 모델·프롬프트의 요약이 원문 대조에서 통째로 버려진 논문은 다시 요약하지 않는다
+      const rejection = {
+        paperId: pass, field: 'oneLine' as const, sentence: '한 줄', problems: ['원문에 없는 숫자 9'],
+        sourceKind: '본문' as const, ...summarizer,
+      }
+      await recordSummaryRejection(rejection)
+      await recordSummaryRejection(rejection) // 같은 논문을 다시 기록해도 한 행(덮어쓰기)
+      expect(await listBriefCandidates(tempUser.id, summarizer)).toEqual([])
+      // 프롬프트가 바뀌면 다시 후보다
+      const after = await listBriefCandidates(tempUser.id, { ...summarizer, promptHash: 'p2' })
+      expect(after.map((c) => c.paperId)).toEqual([pass])
 
       await insertBrief(
         { userId: tempUser.id, date: '2099-01-02', issueNumber: 1, readMinutes: 1 },
@@ -955,7 +968,7 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
           method: '', results: [], limitations: [], quotes: [], isSerendipity: false,
         }],
       )
-      expect(await listBriefCandidates(tempUser.id)).toEqual([]) // 이미 배달
+      expect(await listBriefCandidates(tempUser.id, { ...summarizer, promptHash: 'p2' })).toEqual([]) // 이미 배달
     } finally {
       // 일회용 사용자를 지우면 브리핑(→ brief_items)·관심사·후보·판정이 cascade로 지워진다.
       // brief_items.paper_id에는 cascade가 없으므로 사용자를 먼저 지우고 논문을 지운다
