@@ -1,6 +1,7 @@
 import type { Assessment, BriefItem, PaperSummary } from '@jogan/core'
 import Link from 'next/link'
 import { ExternalLinkIcon } from '@/components/icons'
+import { toggleSave } from '@/lib/actions/saved'
 import { sourceUrl } from '@/lib/link'
 import { EvidenceChips } from './EvidenceChips'
 import { TrackBadge } from './TrackBadge'
@@ -10,6 +11,8 @@ type Props = {
   paper: PaperSummary
   assessment: Assessment | null
   layout: 'phone' | 'web'
+  /** 웹 카드의 "나중에 읽기" 토글 상태 */
+  saved?: boolean
 }
 
 const SOURCE_LABEL: Record<PaperSummary['source'], string> = {
@@ -46,7 +49,7 @@ function SourceLink({ paper, className = '' }: { paper: PaperSummary; className?
  * 웹은 좌측 내용 + 우측 132px 액션 칼럼으로 나뉜다.
  * `assessment.track === 'notable'`(심사 전)인 카드는 `caution` 테두리로 시각적으로 구분한다 (CLAUDE.md 절대 규칙 3).
  */
-export function PaperCard({ item, paper, assessment, layout }: Props) {
+export function PaperCard({ item, paper, assessment, layout, saved = false }: Props) {
   const caution = assessment?.track === 'notable'
   const borderClass = caution ? 'border-2 border-caution-line' : 'border border-line'
   const detailHref = `/paper/${paper.id}`
@@ -102,14 +105,17 @@ export function PaperCard({ item, paper, assessment, layout }: Props) {
         >
           정독하기
         </Link>
-        <button
-          type="button"
-          disabled
-          title="나중에 읽기 저장 — 준비 중"
-          className="inline-flex h-11 items-center justify-center rounded-[10px] border border-line-strong px-3 text-sm font-medium text-ink-dim disabled:opacity-50"
-        >
-          나중에 읽기
-        </button>
+        <form action={toggleSave.bind(null, paper.id)}>
+          <button
+            type="submit"
+            aria-pressed={saved}
+            className={`inline-flex h-11 w-full items-center justify-center rounded-[10px] border px-3 text-sm font-medium ${
+              saved ? 'border-verified-line bg-verified-bg text-verified' : 'border-line-strong text-ink-dim hover:text-ink'
+            }`}
+          >
+            {saved ? '저장됨' : '나중에 읽기'}
+          </button>
+        </form>
       </div>
     </article>
   )

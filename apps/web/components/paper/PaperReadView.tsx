@@ -1,10 +1,11 @@
 import type { BriefItem, PaperSummary } from '@jogan/core'
 import type { PaperDetail } from '@jogan/db'
 import Link from 'next/link'
-import { ExternalLinkIcon, WarningTriangleIcon } from '@/components/icons'
+import { BookmarkIcon, ExternalLinkIcon, WarningTriangleIcon } from '@/components/icons'
+import { toggleSave } from '@/lib/actions/saved'
 import { formatIssueDate } from '@/components/shell/Masthead'
 import { sourceUrl } from '@/lib/link'
-import { formatAuthors, splitParenthetical } from '@/lib/paper-format'
+import { formatAuthors, plainMath, splitParenthetical } from '@/lib/paper-format'
 import { summarizeTrust } from '@/lib/trust-summary'
 import { sortEvidenceForDisplay } from './EvidenceChips'
 import { TrackBadge } from './TrackBadge'
@@ -205,7 +206,7 @@ export function PaperReadView({ detail, related, position, total, briefDate }: P
             <p className="mt-1 text-xs text-ink-muted">
               이 논문은 아직 이 브리핑의 큐레이션 요약이 없습니다. 원문 초록입니다.
             </p>
-            <p className="mt-3 text-[14.5px] leading-[1.85] text-ink-body">{paper.abstract}</p>
+            <p className="mt-3 text-[14.5px] leading-[1.85] text-ink-body">{plainMath(paper.abstract)}</p>
           </section>
         )}
 
@@ -230,8 +231,21 @@ export function PaperReadView({ detail, related, position, total, briefDate }: P
         ) : null}
       </main>
 
-      {/* 우: 도구 — 신뢰도 근거, 내 메모 */}
+      {/* 우: 도구 — 저장, 신뢰도 근거, 내 메모 */}
       <aside className="flex flex-col gap-8">
+        <form action={toggleSave.bind(null, paper.id)}>
+          <button
+            type="submit"
+            aria-pressed={detail.saved != null}
+            className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] border text-sm font-medium ${
+              detail.saved ? 'border-verified-line bg-verified-bg text-verified' : 'border-line-strong bg-surface text-ink-dim hover:text-ink'
+            }`}
+          >
+            <BookmarkIcon className="h-4 w-4" />
+            {detail.saved ? '저장됨' : '나중에 읽기'}
+          </button>
+        </form>
+
         {assessment && trust ? (
           <div>
             <h2 className={SIDE_LABEL}>신뢰도 근거</h2>

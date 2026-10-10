@@ -34,3 +34,30 @@ export function splitParenthetical(value: string): { main: string; paren: string
   if (!match) return { main: value, paren: null }
   return { main: match[1] ?? value, paren: match[2] ?? null }
 }
+
+const MATH_SYMBOLS: Record<string, string> = {
+  times: '×',
+  pm: '±',
+  sim: '~',
+  geq: '≥',
+  ge: '≥',
+  leq: '≤',
+  le: '≤',
+  approx: '≈',
+  rightarrow: '→',
+  to: '→',
+  '%': '%',
+}
+
+/**
+ * arXiv 초록의 인라인 LaTeX(`6.36$\times$`)를 화면용 글자(`6.36×`)로. 표시만 바꾼다 — DB의 초록과
+ * 사실 검증 원문은 그대로다. 짧은 `$…$`만 건드리고, `$` 바로 안쪽이 공백이면 수식이 아니라 달러 금액으로 보고 둔다.
+ */
+export function plainMath(text: string): string {
+  return text.replace(/\$(?=\S)([^$\n]{1,40}?)(?<=\S)\$/g, (_, inner: string) =>
+    inner
+      .replace(/\\([a-z]+|%)/gi, (m, name: string) => MATH_SYMBOLS[name] ?? m)
+      .replace(/[{}]/g, '')
+      .trim(),
+  )
+}

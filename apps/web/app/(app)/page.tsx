@@ -66,6 +66,7 @@ export default async function BriefingPage() {
   const mainItems = view.items.filter((v) => !v.item.isSerendipity)
   const serendipity = view.items.find((v) => v.item.isSerendipity) ?? null
   const followUps = saved.filter((s) => s.item.followUp != null).slice(0, 2)
+  const savedIds = new Set(saved.map((s) => s.item.paperId))
 
   const todayCountByInterest = new Map<string, number>()
   for (const { item } of view.items) {
@@ -125,13 +126,14 @@ export default async function BriefingPage() {
           </div>
 
           <fieldset className="flex flex-col gap-1">
-            <legend className={SIDE_LABEL}>걸러내기</legend>
+            <legend className={SIDE_LABEL}>걸러내기 · 준비 중</legend>
             {FILTERS.map((filter) => (
               <div key={filter.id} className="flex min-h-11 items-center gap-2">
                 <input
                   id={filter.id}
                   type="checkbox"
                   disabled
+                  title={`${filter.label} — 준비 중`}
                   className="h-4 w-4 rounded border-line-strong text-ink-muted"
                 />
                 <label htmlFor={filter.id} className="text-sm text-ink-muted">
@@ -174,7 +176,14 @@ export default async function BriefingPage() {
           </div>
           <div className="flex flex-col gap-3">
             {mainItems.map(({ item, paper, assessment }) => (
-              <PaperCard key={item.paperId} item={item} paper={paper} assessment={assessment} layout="web" />
+              <PaperCard
+                key={item.paperId}
+                item={item}
+                paper={paper}
+                assessment={assessment}
+                layout="web"
+                saved={savedIds.has(item.paperId)}
+              />
             ))}
           </div>
         </main>
