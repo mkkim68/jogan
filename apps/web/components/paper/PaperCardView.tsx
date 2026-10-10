@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { toggleSave } from '@/lib/actions/saved'
 import { BookmarkIcon, CloseIcon, ExternalLinkIcon, ShieldIcon } from '@/components/icons'
 import { sourceUrl } from '@/lib/link'
-import { formatAuthors, formatPublishedDate, splitParenthetical } from '@/lib/paper-format'
+import { formatAuthors, formatPublishedDate, plainMath, splitParenthetical } from '@/lib/paper-format'
 import { ProgressSegments } from '@/components/brief/ProgressSegments'
 import { EvidenceChips } from './EvidenceChips'
 import { TrackBadge } from './TrackBadge'
@@ -70,8 +70,9 @@ export function PaperCardView({ detail, position, total }: Props) {
                     const { main, paren } = splitParenthetical(result.value)
                     return (
                       <div key={result.label} className="flex items-baseline justify-between gap-3 text-sm">
-                        <dt className="shrink-0 text-ink-muted">{result.label}</dt>
-                        <dd className="text-right tabular-nums text-ink-body">
+                        {/* 라벨·값 모두 줄바꿈을 허용한다 — 긴 라벨이 shrink-0이면 폰에서 표가 화면 밖으로 밀렸다 */}
+                        <dt className="min-w-0 flex-1 text-ink-muted [overflow-wrap:anywhere]">{result.label}</dt>
+                        <dd className="min-w-0 max-w-[55%] text-right tabular-nums text-ink-body [overflow-wrap:anywhere]">
                           {main}
                           {paren ? <span className="text-ink-muted"> {paren}</span> : null}
                         </dd>
@@ -108,7 +109,7 @@ export function PaperCardView({ detail, position, total }: Props) {
             <p className="mt-1 text-[11px] text-ink-muted">
               이 논문은 아직 이 브리핑의 큐레이션 요약이 없습니다. 원문 초록입니다.
             </p>
-            <p className="mt-2 text-sm leading-[1.68] text-ink-body">{paper.abstract}</p>
+            <p className="mt-2 text-sm leading-[1.68] text-ink-body">{plainMath(paper.abstract)}</p>
           </section>
         )}
       </article>

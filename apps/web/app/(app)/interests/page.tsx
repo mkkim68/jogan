@@ -1,4 +1,4 @@
-import { MAX_INTERESTS } from '@jogan/core'
+import { COLLECTION_SCOPE, MAX_INTERESTS } from '@jogan/core'
 import { countByInterest } from '@jogan/db'
 import { AddInterestForm } from '@/components/interests/AddInterestForm'
 import { InterestRow } from '@/components/interests/InterestRow'
@@ -27,6 +27,9 @@ export default async function InterestsPage() {
       </h1>
       <p className="mt-1 text-sm text-ink-muted">
         {interests.length}개 · 최대 {MAX_INTERESTS}개까지 등록할 수 있습니다
+      </p>
+      <p className="mt-1 text-xs text-ink-muted">
+        지금은 arXiv의 {COLLECTION_SCOPE} 분야만 모읍니다 — 이 밖의 주제는 브리핑이 오지 않습니다
       </p>
 
       <ul className="mt-6 flex flex-col gap-3">

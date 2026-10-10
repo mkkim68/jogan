@@ -1,7 +1,7 @@
 import type { Stage3 } from '@jogan/core'
 import type { BriefCandidate } from '@jogan/db'
 import { describe, expect, it } from 'vitest'
-import { fitsConstraints, rankCandidates, stage3Mean, trustScore } from './rank'
+import { briefLimits, fitsConstraints, rankCandidates, stage3Mean, trustScore } from './rank'
 
 const score = (value: number | null) => ({ value, reason: 'r' })
 const s3 = (v: number | null): Stage3 => ({
@@ -83,5 +83,33 @@ describe('fitsConstraints', () => {
     const accepted: BriefCandidate[] = []
     for (const c of pool) if (fitsConstraints(accepted, c)) accepted.push(c)
     expect(accepted.map((c) => c.paperId)).toEqual(['a', 'b'])
+  })
+})
+
+describe('briefLimits — 사용자 설정을 지면 제약으로', () => {
+  it('설정이 없으면 기본값: 4편, 프리프린트 2편', () => {
+    expect(briefLimits(null)).toEqual({ size: 4, maxPreprints: 2 })
+  })
+
+  it('하루 편수는 BRIEF_SIZE(4)를 넘지 않는다', () => {
+    expect(briefLimits({ papersPerDay: 2, includePreprints: true }).size).toBe(2)
+    expect(briefLimits({ papersPerDay: 5, includePreprints: true }).size).toBe(4)
+  })
+
+  it('프리프린트를 끄면 notable은 0편 — 켜도 절대 규칙 3의 2편을 넘지 않는다', () => {
+    expect(briefLimits({ papersPerDay: 4, includePreprints: false }).maxPreprints).toBe(0)
+    expect(briefLimits({ papersPerDay: 1, includePreprints: true })).toEqual({ size: 1, maxPreprints: 1 })
+  })
+})
+
+describe('fitsConstraints — limits 주입', () => {
+  it('size 1이면 한 편만 받는다', () => {
+    const one = [cand({ paperId: 'a', track: 'verified' })]
+    expect(fitsConstraints(one, cand({ paperId: 'b', track: 'verified', interestId: 'i2' }), { size: 1, maxPreprints: 1 })).toBe(false)
+  })
+
+  it('maxPreprints 0이면 notable을 받지 않는다', () => {
+    expect(fitsConstraints([], cand({ paperId: 'a' }), { size: 4, maxPreprints: 0 })).toBe(false)
+    expect(fitsConstraints([], cand({ paperId: 'a', track: 'verified' }), { size: 4, maxPreprints: 0 })).toBe(true)
   })
 })

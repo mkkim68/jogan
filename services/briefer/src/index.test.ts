@@ -43,6 +43,7 @@ function deps(over: Partial<BriefDeps> = {}): { d: BriefDeps; saved: Saved[]; bo
     nextIssue: async () => 13,
     saveBrief: async (brief, items) => { saved.push({ brief, items }); return 'brief-id' },
     recordRejection: async (row) => { rejections.push(row) },
+    getSettings: async () => null,
     ...over,
   }
   return { d, saved, bodies, rejections }
@@ -282,5 +283,34 @@ describe('buildBriefs', () => {
     })
     await buildBriefs(d)
     expect(saved[0]?.items[0]?.quotes[0]?.locator).toBe('초록')
+  })
+})
+
+describe('buildBriefs — 사용자 설정', () => {
+  it('하루 편수 2면 2편만 요약·저장한다 (요약 호출도 2번)', async () => {
+    let calls = 0
+    const { d, saved } = deps({
+      getSettings: async () => ({ papersPerDay: 2, includePreprints: true }),
+      summarize: async (input) => { calls++; return okDraft(input.title.replace('T ', '')) },
+    })
+    await buildBriefs(d)
+    expect(saved[0]?.items.map((i) => i.paperId)).toEqual(['a', 'b'])
+    expect(calls).toBe(2)
+  })
+
+  it('프리프린트를 끄면 notable 후보는 요약하지 않는다', async () => {
+    const { d, saved } = deps({
+      getSettings: async () => ({ papersPerDay: 4, includePreprints: false }),
+      listCandidates: async () => [cand('a', { track: 'notable' }), cand('b')],
+    })
+    await buildBriefs(d)
+    expect(saved[0]?.items.map((i) => i.paperId)).toEqual(['b'])
+  })
+
+  it('설정을 못 읽으면 그 사용자만 실패로 넘긴다', async () => {
+    const { d, saved } = deps({ getSettings: async () => { throw new Error('db down') } })
+    const r = await buildBriefs(d)
+    expect(r.failedUsers).toBe(1)
+    expect(saved).toEqual([])
   })
 })

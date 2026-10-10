@@ -30,8 +30,18 @@ export function AddInterestForm({ ownedLabels }: Props) {
   const [state, formAction, pending] = useActionState(addInterestsAction, initialAddInterestsState)
   const [selected, setSelected] = useState<string[]>([])
   const [customLabel, setCustomLabel] = useState('')
+  /** 지금 보여줄 제출 결과. 목록이 다른 이유로 바뀌면(위에서 삭제 등) 지난 결과 문구를 지운다 */
+  const [notice, setNotice] = useState<typeof state | null>(null)
+
+  // 선언 순서가 중요하다 — 추가 직후에는 목록과 결과가 같은 커밋에 바뀌므로, 목록 효과가 먼저 지우고
+  // 결과 효과가 다시 띄운다. 삭제처럼 목록만 바뀌면 지워진 채로 남는다.
+  const ownedKey = ownedLabels.join('\n')
+  useEffect(() => {
+    setNotice(null)
+  }, [ownedKey])
 
   useEffect(() => {
+    setNotice(state)
     if (state.status === 'added') {
       setSelected([])
       setCustomLabel('')
@@ -42,6 +52,7 @@ export function AddInterestForm({ ownedLabels }: Props) {
 
   function toggleTopic(label: string) {
     setSelected((prev) => (prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]))
+    setNotice(null)
   }
 
   return (
@@ -57,7 +68,10 @@ export function AddInterestForm({ ownedLabels }: Props) {
           name="customLabel"
           type="text"
           value={customLabel}
-          onChange={(event) => setCustomLabel(event.target.value)}
+          onChange={(event) => {
+            setCustomLabel(event.target.value)
+            setNotice(null)
+          }}
           placeholder="예: 멀티모달 검색"
           className="mt-2 h-12 w-full rounded-[10px] border border-line-strong bg-paper-subtle px-3.5 text-[15px] text-ink placeholder:text-ink-muted"
         />
@@ -96,21 +110,21 @@ export function AddInterestForm({ ownedLabels }: Props) {
         <input key={label} type="hidden" name="labels" value={label} />
       ))}
 
-      {state.status === 'error' ? (
+      {notice?.status === 'error' ? (
         <p role="alert" className="mt-4 text-sm text-caution">
-          {state.error}
+          {notice.error}
         </p>
       ) : null}
 
-      {state.status === 'duplicate' ? (
+      {notice?.status === 'duplicate' ? (
         <p role="status" className="mt-4 text-sm text-ink-dim">
           이미 등록된 관심사입니다.
         </p>
       ) : null}
 
-      {state.status === 'added' ? (
+      {notice?.status === 'added' ? (
         <p role="status" className="mt-4 text-sm font-medium text-verified">
-          {state.addedCount}개를 추가했습니다.
+          {notice.addedCount}개를 추가했습니다.
         </p>
       ) : null}
 

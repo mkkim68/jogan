@@ -245,8 +245,8 @@ export async function removeInterestAction(
  *
  * 재검증: 출발 시각·하루 편수·프리프린트 포함 여부는 현재 `/settings` 화면에만 표시된다
  * (`/`의 좌 레일·TopBar 어디에도 이 값들을 렌더하는 곳이 없다) — 그래서 `/settings` 하나만
- * 재검증한다. 파이프라인이 이 값을 다음 새벽 배치부터 읽어가는 것이지 화면이 즉시 바뀌는
- * 다른 경로가 없다.
+ * 재검증한다. 하루 편수·프리프린트 포함은 briefer가 다음 새벽 배치부터 읽는다(`briefLimits`).
+ * 출발 시각은 알림이 아직 없어 저장만 한다.
  */
 
 export async function saveSettingsAction(

@@ -1,3 +1,4 @@
+import { COLLECTION_SCOPE } from '@jogan/core'
 import { countByInterest, countStreak, getLatestBrief, getTodayBrief, todayInSeoul } from '@jogan/db'
 import Link from 'next/link'
 import { AudioStrip } from '@/components/brief/AudioStrip'
@@ -40,8 +41,13 @@ export default async function BriefingPage() {
   if (!view) {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-prose flex-col items-center justify-center gap-3 px-6 text-center">
-        <p className="font-display text-xl font-bold text-ink">내일 아침 첫 브리핑이 도착합니다</p>
-        <p className="text-sm text-ink-muted">관심사를 등록해 두면 새벽 배치가 그 안에서 논문을 고릅니다.</p>
+        {/* "내일 아침 도착"이라고 약속하지 않는다 — 관심사에 맞는 논문이 없거나 수집 범위 밖이면 오지 않는다 */}
+        <p className="font-display text-xl font-bold text-ink">아직 도착한 브리핑이 없습니다</p>
+        <p className="text-sm text-ink-muted">
+          새벽 배치가 관심사에 맞는 논문을 찾으면 그날 아침 브리핑이 도착합니다. 오늘 가입했다면 내일 아침부터이고,
+          맞는 논문이 없는 날은 건너뜁니다.
+        </p>
+        <p className="text-xs text-ink-muted">지금은 arXiv의 {COLLECTION_SCOPE} 분야만 모읍니다.</p>
         <Link
           href="/interests"
           className="mt-2 inline-flex h-11 items-center justify-center rounded-[10px] bg-ink px-5 text-sm font-medium text-paper hover:bg-ink-body"
@@ -66,6 +72,7 @@ export default async function BriefingPage() {
   const mainItems = view.items.filter((v) => !v.item.isSerendipity)
   const serendipity = view.items.find((v) => v.item.isSerendipity) ?? null
   const followUps = saved.filter((s) => s.item.followUp != null).slice(0, 2)
+  const savedIds = new Set(saved.map((s) => s.item.paperId))
 
   const todayCountByInterest = new Map<string, number>()
   for (const { item } of view.items) {
@@ -125,13 +132,14 @@ export default async function BriefingPage() {
           </div>
 
           <fieldset className="flex flex-col gap-1">
-            <legend className={SIDE_LABEL}>걸러내기</legend>
+            <legend className={SIDE_LABEL}>걸러내기 · 준비 중</legend>
             {FILTERS.map((filter) => (
               <div key={filter.id} className="flex min-h-11 items-center gap-2">
                 <input
                   id={filter.id}
                   type="checkbox"
                   disabled
+                  title={`${filter.label} — 준비 중`}
                   className="h-4 w-4 rounded border-line-strong text-ink-muted"
                 />
                 <label htmlFor={filter.id} className="text-sm text-ink-muted">
@@ -174,7 +182,14 @@ export default async function BriefingPage() {
           </div>
           <div className="flex flex-col gap-3">
             {mainItems.map(({ item, paper, assessment }) => (
-              <PaperCard key={item.paperId} item={item} paper={paper} assessment={assessment} layout="web" />
+              <PaperCard
+                key={item.paperId}
+                item={item}
+                paper={paper}
+                assessment={assessment}
+                layout="web"
+                saved={savedIds.has(item.paperId)}
+              />
             ))}
           </div>
         </main>

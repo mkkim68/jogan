@@ -1,0 +1,129 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "JoganKit-arm64-apple-macosx-debug.module": ["<JoganKit-arm64-apple-macosx-debug.module>"]
+  "JoganKitPackageTests-arm64-apple-macosx-debug.module": ["<JoganKitPackageTests-arm64-apple-macosx-debug.module>"]
+  "JoganKitPackageTests-arm64-apple-macosx-debug.test": ["<JoganKitPackageTests-arm64-apple-macosx-debug.test>"]
+  "JoganKitTests-arm64-apple-macosx-debug.module": ["<JoganKitTests-arm64-apple-macosx-debug.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "main": ["<JoganKit-arm64-apple-macosx-debug.module>"]
+  "test": ["<JoganKit-arm64-apple-macosx-debug.module>","<JoganKitPackageTests-arm64-apple-macosx-debug.test>","<JoganKitTests-arm64-apple-macosx-debug.module>"]
+default: "main"
+nodes:
+  "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Sources/JoganKit/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Tests/JoganKitTests/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+commands:
+  "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Sources/JoganKit/AppConfig.swift","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Sources/JoganKit/TokenStore.swift","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/DerivedSources/resource_bundle_accessor.swift"]
+    outputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/sources"]
+    description: "Write auxiliary file /Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/sources"
+
+  "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.derived/runner.swift"]
+    outputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.build/sources"]
+    description: "Write auxiliary file /Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.build/sources"
+
+  "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.derived/runner.swift":
+    tool: test-entry-point-tool
+    inputs: []
+    outputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.derived/runner.swift"]
+
+  "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/AppConfig.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/TokenStore.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/resource_bundle_accessor.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.build/runner.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/PlaceholderTests.swift.o"]
+    outputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.product/Objects.LinkFileList"
+
+  "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Tests/JoganKitTests/PlaceholderTests.swift"]
+    outputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/sources"]
+    description: "Write auxiliary file /Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/sources"
+
+  "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit_JoganKit.bundle/Info.plist":
+    tool: copy-tool
+    inputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/Info.plist"]
+    outputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit_JoganKit.bundle/Info.plist"]
+    description: "Copying /Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/Info.plist"
+
+  "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit_JoganKit.bundle/Resources":
+    tool: copy-tool
+    inputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Sources/JoganKit/Resources/"]
+    outputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit_JoganKit.bundle/Resources/"]
+    description: "Copying /Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Sources/JoganKit/Resources"
+
+  "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]
+    outputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+
+  "<JoganKit-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/AppConfig.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/TokenStore.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/resource_bundle_accessor.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKit.swiftmodule"]
+    outputs: ["<JoganKit-arm64-apple-macosx-debug.module>"]
+
+  "<JoganKitPackageTests-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.build/runner.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKitPackageTests.swiftmodule"]
+    outputs: ["<JoganKitPackageTests-arm64-apple-macosx-debug.module>"]
+
+  "<JoganKitPackageTests-arm64-apple-macosx-debug.test>":
+    tool: phony
+    inputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.xctest/Contents/MacOS/JoganKitPackageTests"]
+    outputs: ["<JoganKitPackageTests-arm64-apple-macosx-debug.test>"]
+
+  "<JoganKitTests-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/PlaceholderTests.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKitTests.swiftmodule"]
+    outputs: ["<JoganKitTests-arm64-apple-macosx-debug.module>"]
+
+  "C.JoganKit-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Sources/JoganKit/AppConfig.swift","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Sources/JoganKit/TokenStore.swift","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/DerivedSources/resource_bundle_accessor.swift","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","<JoganKit-arm64-apple-macosx-debug.module-resources>","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/sources"]
+    outputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/AppConfig.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/TokenStore.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/resource_bundle_accessor.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKit.swiftmodule"]
+    description: "Compiling Swift Module 'JoganKit' (3 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","JoganKit","-emit-dependencies","-emit-module","-emit-module-path","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKit.swiftmodule","-output-file-map","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/sources","-I","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j14","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE","-module-cache-path","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/include/JoganKit-Swift.h","-swift-version","5","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","jogankit"]
+
+  "C.JoganKitPackageTests-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.derived/runner.swift","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKitTests.swiftmodule","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.build/sources"]
+    outputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.build/runner.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKitPackageTests.swiftmodule"]
+    description: "Compiling Swift Module 'JoganKitPackageTests' (1 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","JoganKitPackageTests","-emit-dependencies","-emit-module","-emit-module-path","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKitPackageTests.swiftmodule","-output-file-map","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.build/sources","-I","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-Xfrontend","-enable-cross-import-overlays","-j14","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.build/include/JoganKitPackageTests-Swift.h","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","jogankit"]
+
+  "C.JoganKitPackageTests-arm64-apple-macosx-debug.test":
+    tool: shell
+    inputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/AppConfig.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/TokenStore.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit.build/resource_bundle_accessor.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.build/runner.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/PlaceholderTests.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.product/Objects.LinkFileList"]
+    outputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.xctest/Contents/MacOS/JoganKitPackageTests"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/JoganKitPackageTests.xctest/Contents/MacOS/JoganKitPackageTests"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-L","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug","-o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.xctest/Contents/MacOS/JoganKitPackageTests","-module-name","JoganKitPackageTests","-Xlinker","-no_warn_duplicate_libraries","-Xlinker","-bundle","-Xlinker","-rpath","-Xlinker","@loader_path/../../../","@/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitPackageTests.product/Objects.LinkFileList","-Xlinker","-rpath","-Xlinker","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-6.2/macosx","-target","arm64-apple-macosx14.0","-Xlinker","-add_ast_path","-Xlinker","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKit.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKitPackageTests.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKitTests.swiftmodule","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g"]
+
+  "C.JoganKitTests-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Tests/JoganKitTests/PlaceholderTests.swift","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKit.swiftmodule","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/sources"]
+    outputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/PlaceholderTests.swift.o","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKitTests.swiftmodule"]
+    description: "Compiling Swift Module 'JoganKitTests' (1 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","JoganKitTests","-emit-dependencies","-emit-module","-emit-module-path","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules/JoganKitTests.swiftmodule","-output-file-map","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/sources","-I","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-Xfrontend","-enable-cross-import-overlays","-j14","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-swift-version","5","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","jogankit"]
+
+  "JoganKit-arm64-apple-macosx-debug.module-resources":
+    tool: phony
+    inputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit_JoganKit.bundle/Resources/","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKit_JoganKit.bundle/Info.plist"]
+    outputs: ["<JoganKit-arm64-apple-macosx-debug.module-resources>"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Sources/JoganKit/","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Tests/JoganKitTests/","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Package.swift","/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

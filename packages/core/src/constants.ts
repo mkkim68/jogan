@@ -28,6 +28,20 @@ export const ARXIV_CATEGORIES = [
   'stat.ME',  // 통계 방법론 (인과추론)
 ] as const
 
+/** 화면에 수집 범위를 알릴 때 쓰는 이름. 관심사가 이 범위 밖이면 브리핑이 오지 않는다 */
+export const ARXIV_CATEGORY_LABEL: Record<(typeof ARXIV_CATEGORIES)[number], string> = {
+  'cs.AI': '인공지능',
+  'cs.CL': '자연어 처리',
+  'cs.LG': '기계학습',
+  'cs.SE': '소프트웨어 공학',
+  'cs.SD': '음성·오디오',
+  'q-bio.NC': '신경과학',
+  'stat.ME': '통계 방법론',
+}
+
+/** "인공지능 · 자연어 처리 · …" — ARXIV_CATEGORIES 순서 */
+export const COLLECTION_SCOPE = ARXIV_CATEGORIES.map((c) => ARXIV_CATEGORY_LABEL[c]).join(' · ')
+
 /** 워터마크가 없는 첫 실행에서 거슬러 받을 기간 */
 export const COLLECT_BACKFILL_DAYS = 7
 /**

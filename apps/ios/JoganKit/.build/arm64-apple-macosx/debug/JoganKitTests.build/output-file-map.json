@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/primary.swiftdeps"
+  },
+  "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/Tests/JoganKitTests/PlaceholderTests.swift": {
+    "dependencies": "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/PlaceholderTests.d",
+    "object": "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/PlaceholderTests.swift.o",
+    "swiftmodule": "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/PlaceholderTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/PlaceholderTests.swiftdeps",
+    "diagnostics": "/Users/kimminkyoung/Desktop/PLAYGROUND/jogan/apps/ios/JoganKit/.build/arm64-apple-macosx/debug/JoganKitTests.build/PlaceholderTests.dia"
+  }
+}

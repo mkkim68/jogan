@@ -1,5 +1,6 @@
 'use client'
 
+import { BRIEF_SIZE } from '@jogan/core'
 import { useActionState, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Stepper } from '@/components/ui/Stepper'
@@ -45,7 +46,7 @@ export function SettingsForm({
         <label htmlFor="departureTime" className="block text-sm font-medium text-ink-dim">
           집에서 나서는 시간
         </label>
-        <p className="mt-1 text-xs text-ink-muted">알림은 이 5분 전에 보냅니다</p>
+        <p className="mt-1 text-xs text-ink-muted">알림은 준비 중입니다 — 시간은 미리 저장해 둡니다</p>
         <input
           id="departureTime"
           name="departureTime"
@@ -59,13 +60,13 @@ export function SettingsForm({
       <div className="mt-8 flex items-center justify-between border-t border-line-hair pt-8">
         <div>
           <p className="text-sm font-medium text-ink-dim">하루 편수</p>
-          <p className="mt-1 text-xs text-ink-muted">1~5편 사이에서 고를 수 있습니다</p>
+          <p className="mt-1 text-xs text-ink-muted">{`1~${BRIEF_SIZE}편 사이에서 고를 수 있습니다`}</p>
         </div>
         <Stepper
           value={papersPerDay}
           onChange={setPapersPerDay}
           min={1}
-          max={5}
+          max={BRIEF_SIZE}
           decreaseLabel="하루 편수 줄이기"
           increaseLabel="하루 편수 늘리기"
         />
@@ -76,6 +77,11 @@ export function SettingsForm({
         <div>
           <p className="text-sm font-medium text-ink-dim">심사 전 프리프린트 포함</p>
           <p className="mt-1 text-xs text-ink-muted">하루 최대 2편, 경고 라벨과 함께 보여줍니다</p>
+          {includePreprints ? null : (
+            <p className="mt-1 text-xs text-caution">
+              지금은 arXiv 프리프린트만 수집해서, 끄면 브리핑이 비어 있을 수 있습니다
+            </p>
+          )}
         </div>
         <Switch checked={includePreprints} onChange={setIncludePreprints} aria-label="심사 전 프리프린트 포함" />
       </div>
