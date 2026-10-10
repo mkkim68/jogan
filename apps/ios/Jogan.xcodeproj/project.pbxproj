@@ -1,0 +1,513 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1AD06921E8E590D3C5CD055E /* JoganKit in Frameworks */ = {isa = PBXBuildFile; productRef = 63A327C66CC5BD3E88734531 /* JoganKit */; };
+		44FC0A81F8278A2BA552BDE4 /* SpikeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEA0909BFA493039572E489B /* SpikeView.swift */; };
+		50BC3B9A2328FAB622630018 /* JoganWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 48B7E47C2C1C75ABE7E1453C /* JoganWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		889B057A355C772026B3CE83 /* JoganWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 454BA3F76D58C9A114CC58AD /* JoganWidgetBundle.swift */; };
+		8E682BC498EB417E9897C50B /* JoganApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87B326F425B546A8050E18FF /* JoganApp.swift */; };
+		AC0AA9171FEF36DFBF7742EC /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2191D0484C1779E56CF0DB00 /* WidgetKit.framework */; };
+		B4026CAC3FABCE84AB97FA7C /* JoganKit in Frameworks */ = {isa = PBXBuildFile; productRef = 588FC53E86F95634454862B7 /* JoganKit */; };
+		C247EB7C2CD0A2B8A55BE675 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 98B85F0D011315ABA37C7071 /* SwiftUI.framework */; };
+		DE0353A8B435F40AB5AFCCA7 /* SpikeWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EC5244A22FF67DBBF48F1B7 /* SpikeWidget.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		5ABD5CBE9C596A44C5E61EEA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D632203D6D8D6E9920BC9CB5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 42A6977EA14F05F53AB914FA;
+			remoteInfo = JoganWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B1E5EDA1B6E67548373ED755 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				50BC3B9A2328FAB622630018 /* JoganWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0C0A4883AF05126FCEE3AC61 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		0EC5244A22FF67DBBF48F1B7 /* SpikeWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeWidget.swift; sourceTree = "<group>"; };
+		2191D0484C1779E56CF0DB00 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		334A0B2143E6247889E7769F /* JoganKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = JoganKit; path = JoganKit; sourceTree = SOURCE_ROOT; };
+		454BA3F76D58C9A114CC58AD /* JoganWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoganWidgetBundle.swift; sourceTree = "<group>"; };
+		48B7E47C2C1C75ABE7E1453C /* JoganWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = JoganWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		630BD1210E2BF810E734FC4A /* JoganWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = JoganWidget.entitlements; sourceTree = "<group>"; };
+		87B326F425B546A8050E18FF /* JoganApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoganApp.swift; sourceTree = "<group>"; };
+		98B85F0D011315ABA37C7071 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		A8C04EAC08C2368FF972A455 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		BD6620EAE019B4E4A32EAA97 /* Jogan.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Jogan.entitlements; sourceTree = "<group>"; };
+		CEA0909BFA493039572E489B /* SpikeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeView.swift; sourceTree = "<group>"; };
+		D959AEBE2961C8E549609A31 /* Jogan.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Jogan.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E38731B9E987E3F167869B64 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1C9B2908AA5D6D45E3A66BF9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1AD06921E8E590D3C5CD055E /* JoganKit in Frameworks */,
+				AC0AA9171FEF36DFBF7742EC /* WidgetKit.framework in Frameworks */,
+				C247EB7C2CD0A2B8A55BE675 /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		991BBBFCA6997FC71300EFA6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B4026CAC3FABCE84AB97FA7C /* JoganKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		24BD6ABC48599061E4DD8ECA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D959AEBE2961C8E549609A31 /* Jogan.app */,
+				48B7E47C2C1C75ABE7E1453C /* JoganWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		24C2E3F2DF7C03B383EB8630 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				A8C04EAC08C2368FF972A455 /* Base.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		483D46FEC340C3CAC5EFD092 /* Jogan */ = {
+			isa = PBXGroup;
+			children = (
+				0C0A4883AF05126FCEE3AC61 /* Info.plist */,
+				BD6620EAE019B4E4A32EAA97 /* Jogan.entitlements */,
+				87B326F425B546A8050E18FF /* JoganApp.swift */,
+				CEA0909BFA493039572E489B /* SpikeView.swift */,
+			);
+			path = Jogan;
+			sourceTree = "<group>";
+		};
+		C9CEE38F8A78CAC6D505D99F /* JoganWidget */ = {
+			isa = PBXGroup;
+			children = (
+				E38731B9E987E3F167869B64 /* Info.plist */,
+				630BD1210E2BF810E734FC4A /* JoganWidget.entitlements */,
+				454BA3F76D58C9A114CC58AD /* JoganWidgetBundle.swift */,
+				0EC5244A22FF67DBBF48F1B7 /* SpikeWidget.swift */,
+			);
+			path = JoganWidget;
+			sourceTree = "<group>";
+		};
+		D0FB84D32831D46C35C67867 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				98B85F0D011315ABA37C7071 /* SwiftUI.framework */,
+				2191D0484C1779E56CF0DB00 /* WidgetKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		D12F55AF97F95BD2972A26BC = {
+			isa = PBXGroup;
+			children = (
+				24C2E3F2DF7C03B383EB8630 /* Config */,
+				483D46FEC340C3CAC5EFD092 /* Jogan */,
+				C9CEE38F8A78CAC6D505D99F /* JoganWidget */,
+				E5955374082826402F5B968B /* Packages */,
+				D0FB84D32831D46C35C67867 /* Frameworks */,
+				24BD6ABC48599061E4DD8ECA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E5955374082826402F5B968B /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				334A0B2143E6247889E7769F /* JoganKit */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3E333DDD12921289A5BF0DB0 /* Jogan */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8E6F8D9957F52B1424A4947C /* Build configuration list for PBXNativeTarget "Jogan" */;
+			buildPhases = (
+				D62B8F318C49E9C497443858 /* Sources */,
+				991BBBFCA6997FC71300EFA6 /* Frameworks */,
+				B1E5EDA1B6E67548373ED755 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2117E7AB514D2C58B7546AAB /* PBXTargetDependency */,
+			);
+			name = Jogan;
+			packageProductDependencies = (
+				588FC53E86F95634454862B7 /* JoganKit */,
+			);
+			productName = Jogan;
+			productReference = D959AEBE2961C8E549609A31 /* Jogan.app */;
+			productType = "com.apple.product-type.application";
+		};
+		42A6977EA14F05F53AB914FA /* JoganWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AEA7EB6475BD1B8B5F80672F /* Build configuration list for PBXNativeTarget "JoganWidget" */;
+			buildPhases = (
+				596F8609EF428C25889E3ED8 /* Sources */,
+				1C9B2908AA5D6D45E3A66BF9 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = JoganWidget;
+			packageProductDependencies = (
+				63A327C66CC5BD3E88734531 /* JoganKit */,
+			);
+			productName = JoganWidget;
+			productReference = 48B7E47C2C1C75ABE7E1453C /* JoganWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D632203D6D8D6E9920BC9CB5 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					3E333DDD12921289A5BF0DB0 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					42A6977EA14F05F53AB914FA = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = CDAA4AB2101E9B9B55BC1DD5 /* Build configuration list for PBXProject "Jogan" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = D12F55AF97F95BD2972A26BC;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A4AF0524658FD69CDA414E87 /* XCLocalSwiftPackageReference "JoganKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 24BD6ABC48599061E4DD8ECA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3E333DDD12921289A5BF0DB0 /* Jogan */,
+				42A6977EA14F05F53AB914FA /* JoganWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		596F8609EF428C25889E3ED8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				889B057A355C772026B3CE83 /* JoganWidgetBundle.swift in Sources */,
+				DE0353A8B435F40AB5AFCCA7 /* SpikeWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D62B8F318C49E9C497443858 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8E682BC498EB417E9897C50B /* JoganApp.swift in Sources */,
+				44FC0A81F8278A2BA552BDE4 /* SpikeView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2117E7AB514D2C58B7546AAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 42A6977EA14F05F53AB914FA /* JoganWidget */;
+			targetProxy = 5ABD5CBE9C596A44C5E61EEA /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2D6D55ECAE42BD07CBD7E8CC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A8C04EAC08C2368FF972A455 /* Base.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		49E67626DCBF8DD80526701E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = JoganWidget/JoganWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = JoganWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BUNDLE_ID_PREFIX).jogan.widget";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		5F1B1221AEE3B5958C157621 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Jogan/Jogan.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Jogan/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BUNDLE_ID_PREFIX).jogan";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		8DAB2B739524FAFF8B016B35 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A8C04EAC08C2368FF972A455 /* Base.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		ADB004F1A7AD0774A5CDEE4F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = JoganWidget/JoganWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = JoganWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BUNDLE_ID_PREFIX).jogan.widget";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		ECF55E04F1056ABDE36878DC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Jogan/Jogan.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Jogan/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BUNDLE_ID_PREFIX).jogan";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		8E6F8D9957F52B1424A4947C /* Build configuration list for PBXNativeTarget "Jogan" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ECF55E04F1056ABDE36878DC /* Debug */,
+				5F1B1221AEE3B5958C157621 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AEA7EB6475BD1B8B5F80672F /* Build configuration list for PBXNativeTarget "JoganWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ADB004F1A7AD0774A5CDEE4F /* Debug */,
+				49E67626DCBF8DD80526701E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CDAA4AB2101E9B9B55BC1DD5 /* Build configuration list for PBXProject "Jogan" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D6D55ECAE42BD07CBD7E8CC /* Debug */,
+				8DAB2B739524FAFF8B016B35 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A4AF0524658FD69CDA414E87 /* XCLocalSwiftPackageReference "JoganKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = JoganKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		588FC53E86F95634454862B7 /* JoganKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = JoganKit;
+		};
+		63A327C66CC5BD3E88734531 /* JoganKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = JoganKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = D632203D6D8D6E9920BC9CB5 /* Project object */;
+}

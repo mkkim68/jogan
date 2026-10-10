@@ -1,5 +1,6 @@
 'use client'
 
+import { BRIEF_SIZE } from '@jogan/core'
 import { useActionState, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Stepper } from '@/components/ui/Stepper'
@@ -78,7 +79,7 @@ export function OnboardingForm() {
           <label htmlFor="departureTime" className="block text-sm font-medium text-ink-dim">
             집에서 나서는 시간
           </label>
-          <p className="mt-1 text-xs text-ink-muted">알림은 이 5분 전에 보냅니다</p>
+          <p className="mt-1 text-xs text-ink-muted">알림은 준비 중입니다 — 시간은 미리 저장해 둡니다</p>
           <input
             id="departureTime"
             name="departureTime"
@@ -92,13 +93,13 @@ export function OnboardingForm() {
         <div className="mt-8 flex items-center justify-between border-t border-line-hair pt-8">
           <div>
             <p className="text-sm font-medium text-ink-dim">하루 편수</p>
-            <p className="mt-1 text-xs text-ink-muted">1~5편 사이에서 고를 수 있습니다</p>
+            <p className="mt-1 text-xs text-ink-muted">{`1~${BRIEF_SIZE}편 사이에서 고를 수 있습니다`}</p>
           </div>
           <Stepper
             value={papersPerDay}
             onChange={setPapersPerDay}
             min={1}
-            max={5}
+            max={BRIEF_SIZE}
             decreaseLabel="하루 편수 줄이기"
             increaseLabel="하루 편수 늘리기"
           />

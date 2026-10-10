@@ -9,7 +9,7 @@ import {
 } from '@jogan/core'
 import type { BriefCandidate, NewBriefItemRow, SummaryRejectionRow } from '@jogan/db'
 import { config } from 'dotenv'
-import { fitsConstraints, rankCandidates } from './rank'
+import { briefLimits, fitsConstraints, rankCandidates } from './rank'
 import { SUMMARY_MODEL, summarizePaper, summarizerVersion, type LlmFn, type SummaryDraft, type SummaryInput } from './summarize'
 import { verifySummary, type SummaryRejection } from './verify-summary'
 
@@ -62,6 +62,8 @@ export type BriefDeps = {
   ) => Promise<string>
   /** 요약을 원문 대조에서 통째로 버린 기록 — 같은 요약기 버전으로는 다시 후보에 오르지 않는다 */
   recordRejection?: (row: SummaryRejectionRow) => Promise<void>
+  /** 사용자의 하루 편수·프리프린트 포함 설정. 행이 없으면 null(기본값) */
+  getSettings?: (userId: string) => Promise<{ papersPerDay: number; includePreprints: boolean } | null>
 }
 
 /** 요약 글자 수 ÷ 500, 올림, 최소 1 (ADR 0002 D7) */
@@ -82,7 +84,7 @@ export function readMinutesOf(items: NewBriefItemRow[]): number {
 
 /**
  * 사용자마다 오늘 브리핑을 만든다 (ADR 0002).
- * 순위대로 후보를 보며 지면 제약(편수·프리프린트·관심사)에 맞는 것만 요약하고, 사실 검증에서
+ * 순위대로 후보를 보며 지면 제약(사용자 설정의 편수·프리프린트, 관심사 상한)에 맞는 것만 요약하고, 사실 검증에서
  * 한 줄 요약이나 "그래서 뭐?"가 떨어지면 그 논문을 빼고 다음 순위로 자리를 채운다.
  * 사용자 단위·논문 단위로 격리한다. 요약을 시도했는데 응답이 하나도 없으면 단계 장애로 보고 던진다.
  */
@@ -96,6 +98,7 @@ export async function buildBriefs(
   const listCandidates = deps.listCandidates ?? (async (u: string) => (await loadDb()).listBriefCandidates(u, version))
   const recordRejection =
     deps.recordRejection ?? (async (row: SummaryRejectionRow) => (await loadDb()).recordSummaryRejection(row))
+  const getSettings = deps.getSettings ?? (async (u: string) => (await loadDb()).getSettings(u))
   const nextIssue = deps.nextIssue ?? (async (u: string) => (await loadDb()).nextIssueNumber(u))
   const saveBrief =
     deps.saveBrief ??
@@ -129,13 +132,14 @@ export async function buildBriefs(
         log('brief', `사용자 ${userId}: ${today} 브리핑이 이미 있어 건너뜀`)
         continue
       }
+      const limits = briefLimits(await getSettings(userId))
       const ranked = rankCandidates(await listCandidates(userId))
       const accepted: BriefCandidate[] = []
       const items: NewBriefItemRow[] = []
       let dropped = 0
       let userAttempts = 0
       for (const c of ranked) {
-        if (!fitsConstraints(accepted, c)) continue
+        if (!fitsConstraints(accepted, c, limits)) continue
         if (userAttempts >= BRIEF_MAX_SUMMARY_ATTEMPTS) {
           log('brief', `사용자 ${userId}: 요약 시도 상한 ${BRIEF_MAX_SUMMARY_ATTEMPTS}회에 도달해 멈춘다`)
           break

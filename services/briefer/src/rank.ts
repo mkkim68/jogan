@@ -36,10 +36,26 @@ export function rankCandidates(candidates: BriefCandidate[]): BriefCandidate[] {
   })
 }
 
+export type BriefLimits = { size: number; maxPreprints: number }
+
+/**
+ * 사용자 설정(하루 편수·프리프린트 포함)을 지면 제약으로. 설정은 줄이기만 한다 — 편수는 BRIEF_SIZE,
+ * 프리프린트는 절대 규칙 3의 BRIEF_MAX_PREPRINTS를 넘지 않는다. 설정 행이 없으면 기본값.
+ */
+export function briefLimits(settings: { papersPerDay: number; includePreprints: boolean } | null): BriefLimits {
+  const size = Math.min(settings?.papersPerDay ?? BRIEF_SIZE, BRIEF_SIZE)
+  const maxPreprints = settings?.includePreprints === false ? 0 : Math.min(BRIEF_MAX_PREPRINTS, size)
+  return { size, maxPreprints }
+}
+
 /** 이미 고른 것에 이 후보를 더해도 되는가 — 편수, 프리프린트 상한(절대 규칙 3), 관심사 상한(D3) */
-export function fitsConstraints(accepted: BriefCandidate[], candidate: BriefCandidate): boolean {
-  if (accepted.length >= BRIEF_SIZE) return false
-  if (candidate.track === 'notable' && accepted.filter((a) => a.track === 'notable').length >= BRIEF_MAX_PREPRINTS) {
+export function fitsConstraints(
+  accepted: BriefCandidate[],
+  candidate: BriefCandidate,
+  limits: BriefLimits = briefLimits(null),
+): boolean {
+  if (accepted.length >= limits.size) return false
+  if (candidate.track === 'notable' && accepted.filter((a) => a.track === 'notable').length >= limits.maxPreprints) {
     return false
   }
   return accepted.filter((a) => a.interestId === candidate.interestId).length < BRIEF_MAX_PER_INTEREST
