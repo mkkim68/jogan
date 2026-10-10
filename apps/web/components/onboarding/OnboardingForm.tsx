@@ -1,6 +1,6 @@
 'use client'
 
-import { BRIEF_SIZE } from '@jogan/core'
+import { BRIEF_SIZE, COLLECTION_SCOPE } from '@jogan/core'
 import { useActionState, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Stepper } from '@/components/ui/Stepper'
@@ -49,7 +49,7 @@ export function OnboardingForm() {
             className="mt-2 h-12 w-full rounded-[10px] border border-line-strong bg-paper-subtle px-3.5 text-[15px] text-ink placeholder:text-ink-muted"
           />
           <p className="mt-1.5 text-xs text-ink-muted">
-            대표 논문 링크를 붙여 넣으면 취향을 더 정확히 잡습니다
+            지금은 arXiv의 {COLLECTION_SCOPE} 분야만 모읍니다 — 이 밖의 주제는 브리핑이 오지 않습니다
           </p>
         </div>
 
