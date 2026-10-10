@@ -1,6 +1,8 @@
 # jogan — 조간 논문
 
-매일 아침 믿을 만한 논문 4편을 골라 요약해 배달하는 PWA. 기획은 `docs/PRD.md`, 디자인은 `docs/DESIGN.md`, 개발 규칙은 `CLAUDE.md`.
+매일 아침 믿을 만한 논문 2-4편을 골라 요약해 배달하는 PWA. 기획은 `docs/PRD.md`, 디자인은 `docs/DESIGN.md`, 개발 규칙은 `CLAUDE.md`.
+
+**배포:** https://jogan-vert.vercel.app (Google 로그인 — OAuth 앱이 테스트 모드라 테스트 사용자로 등록된 계정만 들어갈 수 있다)
 
 ## 시작하기
 
@@ -27,13 +29,13 @@ pnpm dev                    # http://localhost:3100
 ### Google OAuth 클라이언트 만들기
 
 1. https://console.cloud.google.com → 프로젝트 생성(또는 선택)
-2. **API 및 서비스 → OAuth 동의 화면** → 외부, 앱 이름 `조간 논문`, 본인 이메일. 테스트 사용자에 본인과 멘토 이메일 추가
+2. **API 및 서비스 → OAuth 동의 화면** → 외부, 앱 이름 `조간 논문`, 본인 이메일. 테스트 사용자에 로그인할 이메일 추가
 3. **사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID** → 웹 애플리케이션
    - 승인된 JavaScript 원본: `http://localhost:3100`
    - 승인된 리디렉션 URI: `http://localhost:3100/api/auth/callback/google`
 4. 발급된 클라이언트 ID·보안 비밀을 `.env`에 넣는다
 
-배포 후에는 배포 도메인으로 원본·리디렉션 URI를 하나씩 더 추가한다.
+배포 도메인도 원본·리디렉션 URI에 하나씩 더 추가한다 — 현재 배포는 `https://jogan-vert.vercel.app`, `https://jogan-vert.vercel.app/api/auth/callback/google`.
 
 ## 명령어
 
