@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 176" role="img" aria-labelledby="title desc">
+  <title id="title">조간 논문</title>
+  <desc id="desc">출근길에 읽는 연구 브리핑, 조간 논문</desc>
+  <g transform="translate(18 18)">
+    <rect width="140" height="140" rx="28" fill="#23543D"/>
+    <circle cx="100" cy="36" r="13" fill="#D5A34A"/>
+    <path d="M25 62 66 69v48L25 108V62Z" fill="#F7F4ED"/>
+    <path d="m115 62-41 7v48l41-9V62Z" fill="#FBFAF6"/>
+    <path d="M70 70v48" fill="none" stroke="#D3CBBA" stroke-width="3" stroke-linecap="round"/>
+    <path d="m34 77 23 4m-23 7 23 4m-23 7 18 3m30-21 24-4m-24 11 24-4m-24 11 19-3" fill="none" stroke="#625C50" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M31 102 57 107m24 0 27-5" fill="none" stroke="#9E3B22" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <text x="184" y="101" fill="#171512" font-family="Nanum Myeongjo, Noto Serif KR, serif" font-size="58" font-weight="800" letter-spacing="-2">조간 논문</text>
+  <path d="M185 120h395" stroke="#DED7C9" stroke-width="2"/>
+  <text x="187" y="148" fill="#625C50" font-family="IBM Plex Sans KR, sans-serif" font-size="15" font-weight="600" letter-spacing="2.4">오늘의 연구, 출근 전에</text>
+</svg>

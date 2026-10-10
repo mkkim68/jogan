@@ -1,4 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#F7F4ED"/>
-  <text x="256" y="330" text-anchor="middle" font-family="Nanum Myeongjo, serif" font-weight="800" font-size="220" fill="#171512">朝</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140">
+  <!-- jogan-logo.svg 왼쪽 사각형(심볼)만 뗀 것 -->
+  <rect width="140" height="140" rx="28" fill="#23543D"/>
+  <circle cx="100" cy="36" r="13" fill="#D5A34A"/>
+  <path d="M25 62 66 69v48L25 108V62Z" fill="#F7F4ED"/>
+  <path d="m115 62-41 7v48l41-9V62Z" fill="#FBFAF6"/>
+  <path d="M70 70v48" fill="none" stroke="#D3CBBA" stroke-width="3" stroke-linecap="round"/>
+  <path d="m34 77 23 4m-23 7 23 4m-23 7 18 3m30-21 24-4m-24 11 24-4m-24 11 19-3" fill="none" stroke="#625C50" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M31 102 57 107m24 0 27-5" fill="none" stroke="#9E3B22" stroke-width="3" stroke-linecap="round"/>
 </svg>
