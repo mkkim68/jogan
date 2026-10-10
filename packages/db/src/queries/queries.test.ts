@@ -999,6 +999,34 @@ describe.skipIf(!hasDb)('queries (로컬 DB · 시드 데이터 기준)', () => 
       if (uid) await safeCleanup(() => db.delete(users).where(eq(users.id, uid)))
     }
   })
+
+  it('로그인할 때 Google 프로필로 이름·사진을 덮어쓴다 — 시드 이름이 남지 않게', async () => {
+    const { db, users, updateUserProfile } = await import('../index')
+    const { eq } = await import('drizzle-orm')
+    let tempUserId: string | undefined
+    try {
+      const [tempUser] = await db
+        .insert(users)
+        .values({ email: `__test_profile_${Date.now()}@example.com`, name: '조간 독자', image: null })
+        .returning()
+      if (!tempUser) throw new Error('일회용 사용자 생성 실패')
+      tempUserId = tempUser.id
+
+      await updateUserProfile(tempUser.id, { name: '김민경', image: 'https://example.com/a.png' })
+      const after = await db.query.users.findFirst({ where: (u, { eq: e }) => e(u.id, tempUser.id) })
+      expect(after?.name).toBe('김민경')
+      expect(after?.image).toBe('https://example.com/a.png')
+
+      // Google이 값을 안 주면 기존 값을 지우지 않는다
+      await updateUserProfile(tempUser.id, { name: null, image: null })
+      const kept = await db.query.users.findFirst({ where: (u, { eq: e }) => e(u.id, tempUser.id) })
+      expect(kept?.name).toBe('김민경')
+      expect(kept?.image).toBe('https://example.com/a.png')
+    } finally {
+      const uid = tempUserId
+      if (uid) await safeCleanup(() => db.delete(users).where(eq(users.id, uid)))
+    }
+  })
 })
 
 afterAll(async () => {
