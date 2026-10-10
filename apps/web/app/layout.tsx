@@ -21,6 +21,8 @@ export const metadata: Metadata = {
   title: '조간 논문',
   description: '매일 아침, 믿을 만한 논문 4편',
   appleWebApp: { capable: true, title: '조간 논문', statusBarStyle: 'default' },
+  // iOS는 manifest 아이콘·SVG를 홈 화면 아이콘으로 쓰지 않는다 — apple-touch-icon PNG가 없으면 화면 캡처가 아이콘이 된다.
+  icons: { icon: '/icon.svg', apple: '/icons/apple-touch-icon.png' },
 }
 
 export const viewport: Viewport = {

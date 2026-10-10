@@ -1,5 +1,7 @@
 import { getSettings } from '@jogan/db'
 import { SettingsForm } from '@/components/settings/SettingsForm'
+import { Button } from '@/components/ui/Button'
+import { logout } from '@/lib/actions/account'
 import { requireUser } from '@/lib/session'
 
 // `/onboarding`(`OnboardingForm`)의 기본값과 동일하다 — 두 화면이 같은 세 컨트롤을 공유한다.
@@ -37,6 +39,19 @@ export default async function SettingsPage() {
         papersPerDay={settings?.papersPerDay ?? DEFAULT_PAPERS_PER_DAY}
         includePreprints={settings?.includePreprints ?? true}
       />
+
+      {/* 폰에는 상단바(계정 메뉴)가 없다 — 로그아웃을 여기에도 둔다. */}
+      <section aria-labelledby="account-heading" className="mt-10 border-t border-line pt-6">
+        <h2 id="account-heading" className="text-[11px] font-semibold tracking-[1px] text-ink-muted">
+          계정
+        </h2>
+        <p className="mt-2 truncate text-sm text-ink">{user.email}</p>
+        <form action={logout} className="mt-3">
+          <Button type="submit" variant="secondary">
+            로그아웃
+          </Button>
+        </form>
+      </section>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { countSaved, getLatestBrief } from '@jogan/db'
 import Link from 'next/link'
 import type { SessionUser } from '@/lib/session'
+import { AccountMenu } from './AccountMenu'
 import { formatIssueDate } from './Masthead'
 
 type Props = {
@@ -11,6 +12,7 @@ type Props = {
 /**
  * 웹 전용 상단바 (docs/DESIGN.md §3, §6). 높이 66px, 좌우 여백 28px.
  * 제호 · 날짜/호수 · 검색(준비 중, disabled) · 아카이브(준비 중, disabled) · 저장함 N · 설정 · 아바타 32px.
+ * 아바타는 계정 메뉴(`AccountMenu` — 이름·이메일·설정·로그아웃)를 여는 버튼이다.
  *
  * `설정`은 DESIGN.md §6 시안에는 없다 — `/settings` 화면이 새로 생기며 추가된 항목이라
  * 기존 저장함 링크 옆, 아바타 앞에 같은 스타일(44px 터치 영역)로 붙인다.
@@ -27,7 +29,6 @@ type Props = {
  */
 export async function TopBar({ user, today }: Props) {
   const [savedCount, latestBrief] = await Promise.all([countSaved(user.id), getLatestBrief(user.id)])
-  const avatarLabel = user.name ?? user.email
 
   return (
     <header className="hidden h-[66px] items-center justify-between border-b border-line bg-paper-raised px-7 tablet:flex">
@@ -74,17 +75,7 @@ export async function TopBar({ user, today }: Props) {
         >
           설정
         </Link>
-        {user.image ? (
-          // eslint-disable-next-line @next/next/no-img-element -- 외부(Google) 아바타, next/image 도메인 설정 범위 밖
-          <img src={user.image} alt={avatarLabel} width={32} height={32} className="h-8 w-8 rounded-full" />
-        ) : (
-          <span
-            aria-label={avatarLabel}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-ink text-xs font-semibold text-paper"
-          >
-            {avatarLabel.slice(0, 1).toUpperCase()}
-          </span>
-        )}
+        <AccountMenu name={user.name} email={user.email} image={user.image} />
       </div>
     </header>
   )
